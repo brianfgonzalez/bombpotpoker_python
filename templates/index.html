@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bombpot Poker</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-image: url('https://static.vecteezy.com/system/resources/thumbnails/038/811/423/small_2x/ai-generated-beautiful-background-for-poker-game-advertising-free-photo.jpeg');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            text-align: center;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #FFD700;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        #button-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        #game-area {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            padding: 20px;
+            margin: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+        #player-cards, #flops {
+            width: 45%;
+            text-align: left; /* Left-justify the players' hands */
+        }
+        .card {
+            display: inline-block;
+            margin: 5px;
+            padding: 5px;
+            width: 60px; /* Adjusted width */
+            height: 90px; /* Adjusted height */
+            border: 2px solid white;
+            border-radius: 8px;
+            background-color: white; /* Ensure a white background */
+            color: black;
+            font-size: 1.2rem; /* Increased font size */
+            font-weight: bold;
+            text-align: right; /* Align text to the right */
+            line-height: 1.2; /* Adjusted line height for better spacing */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Add shadow for depth */
+            position: relative; /* Enable positioning for child elements */
+        }
+        .card.red {
+            color: red; /* Red color for hearts and diamonds */
+        }
+        .card::after {
+            content: attr(data-rank) " " attr(data-suit); /* Display rank and suit */
+            position: absolute;
+            top: 5px; /* Position text at the top */
+            right: 5px; /* Position text at the right */
+        }
+        .button {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #666;
+        }
+        #winning-hand-section {
+            display: flex;
+            justify-content: space-between; /* Split the results */
+            margin-top: 20px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+        .winning-hand {
+            width: 45%; /* Split the section into two halves */
+        }
+    </style>
+</head>
+<body>
+    <header>Bombpot Poker</header>
+
+    <div id="button-container">
+        <button class="button" onclick="startGame()">Start Game</button>
+    </div>
+
+    <div id="game-area">
+        <div id="player-cards">
+            <h2>Player 1's Hand</h2>
+            <div id="player1-hand"></div>
+            <h2>Player 2's Hand</h2>
+            <div id="player2-hand"></div>
+        </div>
+        <div id="flops">
+            <h2>Flops</h2>
+            <div id="first-flop"></div>
+            <div id="second-flop"></div>
+        </div>
+    </div>
+
+    <div id="winning-hand-section" style="display: none;">
+        <div class="winning-hand" id="winning-hand-1"></div>
+        <div class="winning-hand" id="winning-hand-2"></div>
+    </div>
+
+    <script>
+        let deck = [];
+        let firstFlop = [];
+        let secondFlop = [];
+        let player1Hand = [];
+        let player2Hand = [];
+
+        function startGame() {
+            fetch('/start_game', { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    deck = data.deck;
+                    firstFlop = data.first_flop;
+                    secondFlop = data.second_flop;
+                    player1Hand = data.player1_hand;
+                    player2Hand = data.player2_hand;
+
+                    // Display Player 1's Hand
+                    document.getElementById('player1-hand').innerHTML = player1Hand.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Display Player 2's Hand
+                    document.getElementById('player2-hand').innerHTML = player2Hand.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Display the First Flop
+                    document.getElementById('first-flop').innerHTML = firstFlop.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Display the Second Flop
+                    document.getElementById('second-flop').innerHTML = secondFlop.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Replace the Start Game button with the Reveal Turn button
+                    document.getElementById('button-container').innerHTML = `
+                        <button class="button" onclick="revealTurn()">Reveal Turn</button>
+                    `;
+                })
+                .catch(error => {
+                    console.error("Error starting the game:", error);
+                });
+        }
+
+        function getCardColorClass(suit) {
+            return (suit === '♥' || suit === '♦') ? 'red' : '';
+        }
+
+        function revealTurn() {
+            fetch('/reveal_turn', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deck, first_flop: firstFlop, second_flop: secondFlop })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    deck = data.deck;
+                    firstFlop = data.first_flop;
+                    secondFlop = data.second_flop;
+
+                    // Update the First Flop
+                    document.getElementById('first-flop').innerHTML = firstFlop.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Update the Second Flop
+                    document.getElementById('second-flop').innerHTML = secondFlop.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Replace the Reveal Turn button with the Reveal River button
+                    document.getElementById('button-container').innerHTML = `
+                        <button class="button" onclick="revealRiver()">Reveal River</button>
+                    `;
+                })
+                .catch(error => {
+                    console.error("Error revealing the turn:", error);
+                });
+        }
+
+        function revealRiver() {
+            fetch('/reveal_river', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deck, first_flop: firstFlop, second_flop: secondFlop })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    deck = data.deck;
+                    firstFlop = data.first_flop;
+                    secondFlop = data.second_flop;
+
+                    // Update the First Flop
+                    document.getElementById('first-flop').innerHTML = firstFlop.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Update the Second Flop
+                    document.getElementById('second-flop').innerHTML = secondFlop.map(card => `
+                        <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                            ${card.rank} ${card.suit}
+                        </div>
+                    `).join('');
+
+                    // Replace the Reveal River button with the Reveal Winner button
+                    document.getElementById('button-container').innerHTML = `
+                        <button class="button" onclick="revealWinner()">Reveal Winner</button>
+                    `;
+                })
+                .catch(error => {
+                    console.error("Error revealing the river:", error);
+                });
+        }
+
+        function revealWinner() {
+            fetch('/reveal_winner', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    player1_hand: player1Hand,
+                    player2_hand: player2Hand,
+                    first_flop: firstFlop,
+                    second_flop: secondFlop
+                })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Render the winners and winning hands for both flops
+                    const firstFlopContent = `
+                        <h3>First Flop</h3>
+                        <p>Winner: ${data.winner_first}</p>
+                        <p>Winning Hand: ${data.hand_type_first}</p>
+                        <div>
+                            ${data.best_hand_first.map(card => `
+                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                                    ${card.rank} ${card.suit}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    const secondFlopContent = `
+                        <h3>Second Flop</h3>
+                        <p>Winner: ${data.winner_second}</p>
+                        <p>Winning Hand: ${data.hand_type_second}</p>
+                        <div>
+                            ${data.best_hand_second.map(card => `
+                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
+                                    ${card.rank} ${card.suit}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    document.getElementById('winning-hand-1').innerHTML = firstFlopContent;
+                    document.getElementById('winning-hand-2').innerHTML = secondFlopContent;
+                    document.getElementById('winning-hand-section').style.display = 'flex';
+
+                    // Replace the Reveal Winner button with the Start New Game button
+                    document.getElementById('button-container').innerHTML = `
+                        <button class="button" onclick="startNewGame()">Start New Game</button>
+                    `;
+                })
+                .catch(error => {
+                    console.error("Error revealing the winner:", error);
+                    alert("An error occurred while revealing the winner. Please try again.");
+                });
+        }
+
+        function startNewGame() {
+            location.reload(); // Reload the page to start a new game
+        }
+    </script>
+</body>
+</html>
