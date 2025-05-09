@@ -4,6 +4,14 @@ from itertools import combinations
 
 app = Flask(__name__)
 
+# Example deck of cards
+SUITS = ['♥', '♦', '♣', '♠']
+RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+DECK = [{'rank': rank, 'suit': suit} for suit in SUITS for rank in RANKS]
+
+def generate_deck():
+    return [{'rank': rank, 'suit': suit} for suit in SUITS for rank in RANKS]
+
 # Helper functions
 def create_deck():
     suits = {'Hearts': '♥', 'Diamonds': '♦', 'Clubs': '♣', 'Spades': '♠'}
@@ -94,24 +102,61 @@ def determine_winner(hand1, hand2, flop):
                     return "Player 2", player2_type, player2_hand
         return "Tie", player1_type, player1_hand
 
+def determine_winner_multiple(players, flop):
+    # Combine each player's hand with the flop and evaluate
+    best_score = -1
+    best_hand = None
+    best_hand_type = None
+    winner = None
+
+    for i, player_hand in enumerate(players):
+        # Generate all valid combinations of 2 player cards + 3 flop cards
+        combinations_list = [
+            list(comb) for comb in combinations(player_hand + flop, 5)
+            if sum(1 for card in comb if card in player_hand) == 2  # Ensure exactly 2 cards are from the player's hand
+        ]
+
+        # Evaluate all combinations and find the best hand
+        best_combination = max(combinations_list, key=lambda hand: evaluate_hand(hand)[0])
+        score, hand_type, hand = evaluate_hand(best_combination)
+
+        # Update the best hand if this player's hand is better
+        if score > best_score:
+            best_score = score
+            best_hand = hand
+            best_hand_type = hand_type
+            winner = f"Player {i + 1}"
+
+    return winner, best_hand_type, best_hand
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/start_game', methods=['POST'])
 def start_game():
-    deck = shuffle_deck()
-    player1_hand = [deck.pop() for _ in range(4)]  # Deal 4 cards to Player 1
-    player2_hand = [deck.pop() for _ in range(4)]  # Deal 4 cards to Player 2
-    first_flop = [deck.pop() for _ in range(3)]   # Deal 3 cards for the first flop
-    second_flop = [deck.pop() for _ in range(3)]  # Deal 3 cards for the second flop
+    data = request.json
+    num_players = data.get('num_players', 2)  # Default to 2 players
+    num_flops = data.get('num_flops', 2)  # Default to 2 flops
+
+    # Shuffle the deck
+    deck = DECK[:]
+    random.shuffle(deck)
+
+    # Deal 4 cards to each player
+    players = []
+    for _ in range(num_players):
+        players.append([deck.pop() for _ in range(4)])
+
+    # Create the flops
+    first_flop = [deck.pop() for _ in range(3)]
+    second_flop = [deck.pop() for _ in range(3)] if num_flops == 2 else []
 
     return jsonify({
-        'deck': deck,
-        'player1_hand': player1_hand,
-        'player2_hand': player2_hand,
+        'players': players,
         'first_flop': first_flop,
-        'second_flop': second_flop
+        'second_flop': second_flop,
+        'deck': deck
     })
 
 @app.route('/determine_winner', methods=['POST'])
@@ -176,22 +221,43 @@ def reveal_river():
 @app.route('/reveal_winner', methods=['POST'])
 def reveal_winner():
     data = request.get_json()
-    player1_hand = data['player1_hand']
-    player2_hand = data['player2_hand']
-    first_flop = data['first_flop']
-    second_flop = data['second_flop']
+    print("Data received in /reveal_winner:", data)  # Debugging: Log the received data
 
-    # Determine winners for each flop
-    winner_first, hand_type_first, best_hand_first = determine_winner(player1_hand, player2_hand, first_flop)
-    winner_second, hand_type_second, best_hand_second = determine_winner(player1_hand, player2_hand, second_flop)
+    players = data['players']
+    first_flop = data['first_flop']
+    second_flop = data.get('second_flop', [])
+    prediction_first = data.get('prediction_first', None)
+    prediction_second = data.get('prediction_second', None)
+
+    # Debugging: Log the received predictions
+    print("Prediction for First Flop:", prediction_first)
+    print("Prediction for Second Flop:", prediction_second)
+
+    # Process the data and determine the winners
+    # (Assume determine_winner_multiple is a function that determines the winner)
+    winner_first, hand_type_first, best_hand_first = determine_winner_multiple(players, first_flop)
+    winner_second, hand_type_second, best_hand_second = None, None, None
+    if second_flop:
+        winner_second, hand_type_second, best_hand_second = determine_winner_multiple(players, second_flop)
+
+    # Check if the predictions were correct
+    prediction_correct_first = prediction_first == winner_first
+    prediction_correct_second = prediction_second == winner_second if second_flop else None
+
+    # Debugging: Log the results
+    print("Winner First Flop:", winner_first, hand_type_first, best_hand_first)
+    if second_flop:
+        print("Winner Second Flop:", winner_second, hand_type_second, best_hand_second)
 
     return jsonify({
         "winner_first": winner_first,
         "hand_type_first": hand_type_first,
         "best_hand_first": best_hand_first,
+        "prediction_correct_first": prediction_correct_first,
         "winner_second": winner_second,
         "hand_type_second": hand_type_second,
-        "best_hand_second": best_hand_second
+        "best_hand_second": best_hand_second,
+        "prediction_correct_second": prediction_correct_second
     })
 
 if __name__ == '__main__':
