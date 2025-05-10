@@ -65,39 +65,6 @@
             margin-right: 20px;
             max-width: 200px;
         }
-        .player-hand {
-            position: relative; /* Enable positioning of cards within the hand */
-            width: 150px; /* Adjust the width of the player's hand */
-            height: 90px; /* Adjust height to fit the cards */
-            border: 2px;
-        }
-        .player-hand .card {
-            position: absolute; /* Position cards relative to the hand */
-            top: 0;
-            left: 0;
-            z-index: 1; /* Ensure cards stack properly */
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .player-hand .card:nth-child(1) {
-            z-index: 4; /* Ensure the first card is on top */
-            left: 0; /* No offset for the first card */
-        }
-
-        .player-hand .card:nth-child(2) {
-            z-index: 3;
-            left: 40px; /* Offset the second card slightly to the right */
-        }
-
-        .player-hand .card:nth-child(3) {
-            z-index: 2;
-            left: 80px; /* Offset the third card slightly more to the right */
-        }
-
-        .player-hand .card:nth-child(4) {
-            z-index: 1;
-            left: 120px; /* Offset the fourth card even more to the right */
-        }
         #flops {
             flex: 2;
         }
@@ -124,7 +91,7 @@
             padding: 5px;
             width: 50px;
             height: 75px;
-            border: 1px solid black;
+            border: 2px;
             border-radius: 8px;
             background-color: white;
             color: black;
@@ -288,13 +255,6 @@
             <!-- Buttons will be dynamically added here -->
         </div>
     </div>
-
-    <!-- Prediction Result Section -->
-    <div id="popup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 999;"></div>
-    <div id="prediction-popup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; color: black; padding: 20px; border-radius: 10px; z-index: 1000;">
-        <!-- Popup content will be dynamically added here -->
-    </div>
-
     <script>
         let totalPredictions = 0;
         let currentGameState = {};
@@ -359,6 +319,12 @@
                 document.getElementById("game-area").style.display = "flex";
                 renderGame(data);
 
+                const buttonContainer = document.getElementById('button-container');
+                if (buttonContainer) {
+                    buttonContainer.innerHTML = `<button class="button" onclick="revealTurn()">Reveal Turn</button>`;
+                } else {
+                    console.error("Error: 'button-container' element not found.");
+                }
             })
             .catch(error => {
                 console.error("Error starting the game:", error);
@@ -460,15 +426,6 @@
                         currentGameState.second_flop = data.flops.second_flop;
                         flippedCard.classList.remove('flipping');
                         renderGame();
-
-                        // Check if all cards are flipped
-                        const allFlipped = !currentGameState.first_flop.flipped.length && 
-                                           (!currentGameState.second_flop || !currentGameState.second_flop.flipped.length);
-                        if (allFlipped) {
-                            setTimeout(() => {
-                                revealWinner();
-                            }, 1000); // 1-second delay before revealing the winner
-                        }
                     })
                     .catch(error => {
                         console.error("Error revealing card:", error);
@@ -499,6 +456,46 @@
             return (suit === '♥' || suit === '♦') ? 'red' : '';
         }
 
+        function revealTurn() {
+            document.getElementById("prediction-first-flop").disabled = true;
+            document.getElementById("prediction-second-flop").disabled = true;
+            firstFlop.push(deck.shift());
+            if (secondFlop.length > 0) {
+                secondFlop.push(deck.shift());
+            }
+            document.getElementById("first-flop").innerHTML = firstFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
+            if (secondFlop.length > 0) {
+                document.getElementById("second-flop").innerHTML = secondFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
+            }
+            if (difficulty === "difficult") {
+                const playersContainer = document.getElementById("players");
+                playersContainer.innerHTML = "";
+                players.forEach((player, index) => {
+                    playersContainer.innerHTML += `
+                        <h3>Player ${index + 1}'s Hand</h3>
+                        <div class="player-hand">
+                            <div>
+                                ${player.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('button-container').innerHTML = `<button class="button" onclick="revealRiver()">Reveal River</button>`;
+        }
+
+        function revealRiver() {
+            firstFlop.push(deck.shift());
+            if (secondFlop.length > 0) {
+                secondFlop.push(deck.shift());
+            }
+            document.getElementById("first-flop").innerHTML = firstFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
+            if (secondFlop.length > 0) {
+                document.getElementById("second-flop").innerHTML = secondFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
+            }
+            document.getElementById('button-container').innerHTML = `<button class="button" onclick="revealWinner()">Reveal Winner</button>`;
+        }
+
         function revealWinner() {
             const predictionFirstFlop = document.getElementById("prediction-first-flop").value;
             const predictionSecondFlop = document.getElementById("prediction-second-flop").value;
@@ -524,34 +521,26 @@
                 if (secondFlop.length > 0) {
                     updateTally(data.winner_second === predictionSecondFlop);
                 }
-
-                const predictionResultElement = document.getElementById('prediction-popup');
-                if (predictionResultElement) {
-                    const predictionResult = `
-                        <h3>First Flop Results</h3>
-                        <p>Prediction: ${predictionFirstFlop} - ${data.winner_first === predictionFirstFlop ? "Correct" : "Incorrect"}</p>
-                        <p>Winner: ${data.winner_first}</p>
-                        <p>Winning Hand: ${data.hand_type_first}</p>
-                        <div>
-                            ${data.best_hand_first.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
-                        </div>
-                        ${secondFlop.length > 0 ? `
-                        <h3>Second Flop Results</h3>
-                        <p>Prediction: ${predictionSecondFlop} - ${data.winner_second === predictionSecondFlop ? "Correct" : "Incorrect"}</p>
-                        <p>Winner: ${data.winner_second}</p>
-                        <p>Winning Hand: ${data.hand_type_second}</p>
-                        <div>
-                            ${data.best_hand_second.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
-                        </div>
-                        <button class="button" onclick="startNewGame()">Start New Game</button>` : ""}
-                    `;
-                    predictionResultElement.innerHTML = predictionResult;
-                    showPopup();
-                } else {
-                    console.error("Error: 'prediction-popup' element not found.");
-                }
-
-
+                const predictionResult = `
+                    <h3>First Flop Results</h3>
+                    <p>Prediction: ${predictionFirstFlop} - ${data.winner_first === predictionFirstFlop ? "Correct" : "Incorrect"}</p>
+                    <p>Winner: ${data.winner_first}</p>
+                    <p>Winning Hand: ${data.hand_type_first}</p>
+                    <div>
+                        ${data.best_hand_first.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
+                    </div>
+                    ${secondFlop.length > 0 ? `
+                    <h3>Second Flop Results</h3>
+                    <p>Prediction: ${predictionSecondFlop} - ${data.winner_second === predictionSecondFlop ? "Correct" : "Incorrect"}</p>
+                    <p>Winner: ${data.winner_second}</p>
+                    <p>Winning Hand: ${data.hand_type_second}</p>
+                    <div>
+                        ${data.best_hand_second.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
+                    </div>` : ""}
+                `;
+                document.getElementById('prediction-result').innerHTML = predictionResult;
+                showPopup();
+                document.getElementById('button-container').innerHTML = `<button class="button" onclick="startNewGame()">Start New Game</button>`;
             })
             .catch(error => {
                 console.error("Error revealing the winner:", error);
@@ -564,15 +553,8 @@
         }
 
         function showPopup() {
-            const popupElement = document.getElementById('prediction-popup');
-            const overlayElement = document.getElementById('popup-overlay');
-
-            if (popupElement && overlayElement) {
-                popupElement.style.display = 'block';
-                overlayElement.style.display = 'block';
-            } else {
-                console.error("Error: 'prediction-popup' or 'popup-overlay' element not found.");
-            }
+            document.getElementById('prediction-popup').style.display = 'block';
+            document.getElementById('popup-overlay').style.display = 'block';
         }
 
         function updateTally(isCorrect) {
