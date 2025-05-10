@@ -103,31 +103,45 @@ def determine_winner(hand1, hand2, flop):
         return "Tie", player1_type, player1_hand
 
 def determine_winner_multiple(players, flop):
-    # Combine each player's hand with the flop and evaluate
+    print("Debug: Players data:", players)
+    print("Debug: Flop data:", flop)
+
     best_score = -1
+    best_player = None
     best_hand = None
     best_hand_type = None
-    winner = None
 
-    for i, player_hand in enumerate(players):
-        # Generate all valid combinations of 2 player cards + 3 flop cards
+    for index, player in enumerate(players):
+        player_hand = player.get('cards', [])
+        if not isinstance(player_hand, list):
+            print("Error: Player hand is not a list:", player_hand)
+            continue
+
+        # Generate all combinations of 5 cards (2 from player + 3 from flop)
         combinations_list = [
             list(comb) for comb in combinations(player_hand + flop, 5)
-            if sum(1 for card in comb if card in player_hand) == 2  # Ensure exactly 2 cards are from the player's hand
+            if sum(1 for card in comb if card in player_hand) == 2
         ]
 
-        # Evaluate all combinations and find the best hand
-        best_combination = max(combinations_list, key=lambda hand: evaluate_hand(hand)[0])
-        score, hand_type, hand = evaluate_hand(best_combination)
+        if not combinations_list:
+            print(f"Error: No valid combinations generated for Player {index + 1}.")
+            continue
 
-        # Update the best hand if this player's hand is better
+        # Find the best combination for the current player
+        best_combination = max(combinations_list, key=lambda hand: evaluate_hand(hand)[0])
+        score, hand_type, _ = evaluate_hand(best_combination)
+
+        # Update the best player if the current player's score is higher
         if score > best_score:
             best_score = score
-            best_hand = hand
+            best_player = f"Player {index + 1}"
+            best_hand = best_combination
             best_hand_type = hand_type
-            winner = f"Player {i + 1}"
 
-    return winner, best_hand_type, best_hand
+    if best_player is None:
+        raise ValueError("No valid hands to evaluate.")
+
+    return best_player, best_hand_type, best_hand
 
 @app.route('/')
 def index():
@@ -144,13 +158,17 @@ def start_game():
     random.shuffle(deck)
 
     # Deal 4 cards to each player
-    players = []
-    for _ in range(num_players):
-        players.append([deck.pop() for _ in range(4)])
+    players = [{'cards': [deck.pop() for _ in range(4)]} for _ in range(num_players)]
 
-    # Create the flops
-    first_flop = [deck.pop() for _ in range(3)]
-    second_flop = [deck.pop() for _ in range(3)] if num_flops == 2 else []
+    # Create the flops with 3 exposed cards and 2 flipped cards
+    first_flop = {
+        'exposed': [deck.pop() for _ in range(3)],
+        'flipped': [deck.pop() for _ in range(2)]
+    }
+    second_flop = {
+        'exposed': [deck.pop() for _ in range(3)],
+        'flipped': [deck.pop() for _ in range(2)]
+    } if num_flops == 2 else None
 
     return jsonify({
         'players': players,
@@ -158,6 +176,37 @@ def start_game():
         'second_flop': second_flop,
         'deck': deck
     })
+
+@app.route('/reveal_card', methods=['POST'])
+def reveal_card():
+    try:
+        data = request.get_json()
+        app.logger.debug(f"Received payload in /reveal_card: {data}")  # Debugging
+
+        if not data:
+            return jsonify({'error': 'Invalid request payload. No data provided.'}), 400
+
+        flop = data.get('flop')
+        index = data.get('index')
+        flops = data.get('flops')
+
+        if not flop or not isinstance(index, int) or not flops:
+            app.logger.error(f"Invalid payload structure: {data}")  # Debugging
+            return jsonify({'error': 'Invalid request payload. Missing or invalid "flop", "index", or "flops" key.'}), 400
+
+        if flop not in flops or index >= len(flops[flop]['flipped']):
+            app.logger.error(f"Invalid flop or index: flop={flop}, index={index}, flops={flops}")  # Debugging
+            return jsonify({'error': 'Invalid flop or index.'}), 400
+
+        # Reveal the card
+        revealed_card = flops[flop]['flipped'].pop(index)
+        flops[flop]['exposed'].append(revealed_card)
+
+        app.logger.debug(f"Updated flops after revealing card: {flops}")  # Debugging
+        return jsonify({'flops': flops})  # Return the updated flops
+    except Exception as e:
+        app.logger.error(f"Error in reveal_card: {e}")
+        return jsonify({'error': 'An unexpected error occurred.'}), 500
 
 @app.route('/determine_winner', methods=['POST'])
 def determine_winner_route():

@@ -8,8 +8,10 @@
         body {
             font-family: 'Arial', sans-serif;
             background-image: url('https://static.vecteezy.com/system/resources/thumbnails/038/811/423/small_2x/ai-generated-beautiful-background-for-poker-game-advertising-free-photo.jpeg');
-            background-size: cover;
-            background-position: center;
+            background-size: cover; /* Ensures the image covers the entire page */
+            background-position: center; /* Centers the image */
+            background-repeat: no-repeat; /* Prevents the image from repeating */
+            background-attachment: fixed; /* Keeps the background fixed during scrolling */
             color: white;
             margin: 0;
             padding: 0;
@@ -231,8 +233,6 @@
             /* text-align: center; */
         }
 
-        #prediction-first-flop-section {
-        }
         #prediction-second-flop-section {
             margin-top: 100px;
         }
@@ -312,7 +312,7 @@
             padding: 30px;
             border-radius: 15px;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7); /* Stronger shadow for emphasis */
-            width: 600px; /* Increased width to fit hands in one row */
+            width: 450px; /* Increased width to fit hands in one row */
             text-align: center;
             display: none;
         }
@@ -362,9 +362,6 @@
             display: none;
         }
 
-        #settings {
-            /*display: none; /* Hide settings after the game starts */
-        }
 
         #button-container {
             display: flex;
@@ -417,6 +414,9 @@
             #flops-container {
                 padding: 10px;
             }
+            #flops-container .card {
+                margin: 1px;
+            }
 
             .card {
                 width: 40px;
@@ -455,6 +455,53 @@
                 font-size: 1rem;
                 padding: 10px 15px;
             }
+            #prediction-result {
+                font-size: 0.9rem;
+                line-height: 1.2;
+            }
+
+            #prediction-result h3 {
+                font-size: 1.2rem;
+                margin-bottom: 5px;
+            }
+
+            #prediction-result p {
+                margin: 5px 0;
+            }
+
+            #prediction-result .card {
+                width: 35px;
+                height: 50px;
+                font-size: 0.7rem;
+                margin: 3px;
+            }
+
+            #popup-content {
+                width: 95%;
+                padding: 10px;
+            }
+
+            #popup-content h2 {
+                font-size: 1.3rem;
+                margin-bottom: 10px;
+            }
+
+            #popup-content button {
+                font-size: 0.9rem;
+                padding: 8px 12px;
+            }
+        }
+        .card {
+            display: inline-block;
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid black;
+            background-color: white;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -472,7 +519,14 @@
                 <option value="6">6</option>
             </select>
 
+            <label for="difficulty">Select Difficulty:</label>
+            <select id="difficulty" onchange="updateDifficulty()">
+                <option value="easy">Easy</option>
+                <option value="difficult">Difficult</option>
+            </select>
+
             <button class="button" id="start-game-button" onclick="startGame()">Start Game</button>
+            <button class="button" id="reset-prediction-button" onclick="resetPredictionAccuracy()">Reset Prediction Accuracy</button>
         </div>
     </div>
 
@@ -489,31 +543,28 @@
             <div id="players">Player hands go here</div>
         </div>
 
-        <div id="prediction-section">
-            <h3>Make Your Predictions</h3>
-            <div id="prediction-first-flop-section">
-                <label for="prediction-first-flop">1st Flop Winner:</label>
-                <select id="prediction-first-flop">
-                <!-- Player options will be dynamically added here -->
-                </select>
-            </div>
-
-            <div id="prediction-second-flop-section">
-                <label for="prediction-second-flop">2nd Flop Winner:</label>
-                <select id="prediction-second-flop">
-                <!-- Player options will be dynamically added here -->
-                </select>
-            </div>
-        </div>
-
         <div id="flops">
             <div id="flops-container">
                 <div id="first-flop-section">
                     <h3>First Flop</h3>
+                    <label for="prediction-first-flop">
+                        <!-- Prediction label will be dynamically added here -->
+                    </label>
+                    <select id="prediction-first-flop">
+                        <!-- Player options will be dynamically added here -->
+                    </select>
                     <div id="first-flop">First flop cards go here</div>
+                    <div id="first-flop-exposed"></div>
+                    <div id="first-flop-flipped"></div>
                 </div>
                 <div id="second-flop-section">
                     <h3>Second Flop</h3>
+                    <label for="prediction-second-flop">
+                        <!-- Prediction label will be dynamically added here -->
+                    </label>
+                    <select id="prediction-second-flop">
+                        <!-- Player options will be dynamically added here -->
+                    </select>
                     <div id="second-flop">Second flop cards go here</div>
                 </div>
             </div>
@@ -539,7 +590,9 @@
         </div>
     </div>
 
-
+    <div id="tally" style="position: absolute; top: 10px; left: 10px; background-color: rgba(0, 0, 0, 0.7); color: white; padding: 10px; border-radius: 5px;">
+        Prediction Accuracy: 0% (0/0)
+    </div>
 
     <script>
         let deck = [];
@@ -550,9 +603,163 @@
         let numFlops = 2;
         let predictionFirstFlop = "Player 1";
         let predictionSecondFlop = "Player 1";
+        let difficulty = "easy"; // Default difficulty
+        let correctPredictions = 0;
+        let totalPredictions = 0;
+        let currentGameState = {};
+
+        function startNewGame() {
+            location.reload(); // Reload the page to start a new game
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Prepopulate game settings from localStorage
+            const savedNumPlayers = localStorage.getItem('numPlayers');
+            const savedDifficulty = localStorage.getItem('difficulty');
+
+            if (savedNumPlayers) {
+                numPlayers = parseInt(savedNumPlayers);
+                document.getElementById("num-players").value = numPlayers;
+            }
+
+            if (savedDifficulty) {
+                difficulty = savedDifficulty;
+                document.getElementById("difficulty").value = difficulty;
+            }
+
+            renderPlayerOptions(); // Populate the dropdowns when the page loads
+
+            // Load tally data from localStorage
+            correctPredictions = parseInt(localStorage.getItem('correctPredictions')) || 0;
+            totalPredictions = parseInt(localStorage.getItem('totalPredictions')) || 0;
+
+            // Update the tally display on page load
+            const percentage = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
+            document.getElementById('tally').innerText = `Prediction Accuracy: ${percentage}% (${correctPredictions}/${totalPredictions})`;
+        });
+
+        function startGame() {
+            console.log("Starting game..."); // Debugging: Log when the function is called
+            fetch('/start_game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ num_players: 2, num_flops: 2 })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Failed to start game");
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Game started successfully:", data); // Debugging: Log the response
+                currentGameState = data;
+
+                // Extract exposed cards from the first and second flops
+                firstFlop = data.first_flop.exposed; // Use the 'exposed' property
+                secondFlop = data.second_flop ? data.second_flop.exposed : []; // Use the 'exposed' property if it exists
+                players = data.players;
+
+                // Show the game area
+                document.getElementById("settings").style.display = "none";
+                document.getElementById("game-area").style.display = "flex";
+
+                renderGame(data); // Update the UI with the game data
+
+                // Replace the Start Game button with the Reveal Turn button
+                document.getElementById('button-container').innerHTML = `
+                    <button class="button" onclick="revealTurn()">Reveal Turn</button>
+                `;
+            })
+            .catch(error => {
+                console.error("Error starting the game:", error); // Debugging: Log any errors
+            });
+        }
+
+        function renderPlayerOptions() {
+            const firstFlopDropdown = document.getElementById("prediction-first-flop");
+            const secondFlopDropdown = document.getElementById("prediction-second-flop");
+            const firstFlopLabel = document.querySelector('label[for="prediction-first-flop"]');
+            const secondFlopLabel = document.querySelector('label[for="prediction-second-flop"]');
+
+            // Clear existing options
+            firstFlopDropdown.innerHTML = "";
+            secondFlopDropdown.innerHTML = "";
+
+            if (difficulty === "easy") {
+                // Add player options for Easy mode
+                for (let i = 1; i <= numPlayers; i++) {
+                    const option = `<option value="Player ${i}">Player ${i}</option>`;
+                    firstFlopDropdown.innerHTML += option;
+                    secondFlopDropdown.innerHTML += option;
+                }
+                firstFlopLabel.textContent = "Select Winner:";
+                secondFlopLabel.textContent = "Select Winner:";
+            } else {
+                // Add win/lose options for Player 1 in Difficult mode
+                firstFlopDropdown.innerHTML = `
+                    <option value="Player 1">Yes</option>
+                    <option value="Other Player">No</option>
+                `;
+                secondFlopDropdown.innerHTML = `
+                    <option value="Player 1">Yes</option>
+                    <option value="Other Player">No</option>
+                `;
+                firstFlopLabel.textContent = "Will Player 1 win?";
+                secondFlopLabel.textContent = "Will Player 1 win?";
+            }
+        }
+
+        function renderGame() {
+            console.log("Rendering game state:", currentGameState); // Debugging: Log the current game state
+
+            const playersContainer = document.getElementById('players');
+            const firstFlopContainer = document.getElementById('first-flop');
+            const secondFlopContainer = document.getElementById('second-flop');
+
+            // Render players' cards
+            playersContainer.innerHTML = currentGameState.players.map((player, index) => `
+                <div>
+                    <h3>Player ${index + 1}</h3>
+                    <div class="player-cards player-hand">
+                        ${player.cards.map(card => `<div class="card">${card.rank}${card.suit}</div>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+            console.log("Players rendered:", playersContainer.innerHTML); // Debugging: Log the rendered players
+
+            // Render first flop
+            firstFlopContainer.innerHTML = `
+                <h3>First Flop</h3>
+                <div class="flop-exposed">
+                    Exposed: ${currentGameState.first_flop.exposed.map(card => `<div class="card">${card.rank}${card.suit}</div>`).join('')}
+                </div>
+                <div class="flop-flipped">
+                    Flipped: ${currentGameState.first_flop.flipped.map((_, index) => `<button onclick="revealCard('first_flop', ${index})">Flip</button>`).join('')}
+                </div>
+            `;
+            console.log("First flop rendered:", firstFlopContainer.innerHTML); // Debugging: Log the rendered first flop
+
+            // Render second flop if it exists
+            if (currentGameState.second_flop) {
+                secondFlopContainer.innerHTML = `
+                    <h3>Second Flop</h3>
+                    <div class="flop-exposed">
+                        Exposed: ${currentGameState.second_flop.exposed.map(card => `<div class="card">${card.rank}${card.suit}</div>`).join('')}
+                    </div>
+                    <div class="flop-flipped">
+                        Flipped: ${currentGameState.second_flop.flipped.map((_, index) => `<button onclick="revealCard('second_flop', ${index})">Flip</button>`).join('')}
+                    </div>
+                `;
+                console.log("Second flop rendered:", secondFlopContainer.innerHTML); // Debugging: Log the rendered second flop
+            } else {
+                secondFlopContainer.innerHTML = '';
+            }
+        }
 
         function updatePlayers() {
             numPlayers = parseInt(document.getElementById("num-players").value);
+            localStorage.setItem('numPlayers', numPlayers); // Save to localStorage
             renderPlayerOptions(); // Re-render the dropdowns when the number of players changes
         }
 
@@ -561,78 +768,35 @@
             renderPlayerOptions(); // Re-render the dropdowns when the number of flops changes
         }
 
-        function renderPlayerOptions() {
-            const firstFlopDropdown = document.getElementById("prediction-first-flop");
-            const secondFlopDropdown = document.getElementById("prediction-second-flop");
+        function updateDifficulty() {
+            difficulty = document.getElementById("difficulty").value;
+            localStorage.setItem('difficulty', difficulty); // Save to localStorage
+            renderPlayerOptions(); // Re-render the dropdowns based on difficulty
 
-            // Clear existing options
-            firstFlopDropdown.innerHTML = "";
-            secondFlopDropdown.innerHTML = "";
-
-            // Add player options
-            for (let i = 1; i <= numPlayers; i++) {
-                const option = `<option value="Player ${i}">Player ${i}</option>`;
-                firstFlopDropdown.innerHTML += option;
-                secondFlopDropdown.innerHTML += option;
+            // Ensure players array is initialized before rendering the game
+            if (!players || players.length === 0) {
+                console.warn("Players data is not initialized. Skipping renderGame.");
+                return;
             }
-
-            // Always show the second flop dropdown
-            // secondFlopDropdown.style.display = "block";
-            // document.querySelector('label[for="prediction-second-flop"]').style.display = "block";
+                renderGame({ players, first_flop: firstFlop, second_flop: secondFlop }); // Re-render the game area
         }
 
-        function startGame() {
-            // Get settings from the dropdowns
-            numPlayers = parseInt(document.getElementById("num-players").value);
-            const predictionFirstFlop = document.getElementById("prediction-first-flop").value;
-            const predictionSecondFlop = document.getElementById("prediction-second-flop").value;
-
-            // Hide the settings section after the game starts
-            document.getElementById("settings").style.display = "none";
-            document.getElementById("header-section").style.display = "block";
-            document.getElementById("game-area").style.display = "flex";
-
-            fetch('/start_game', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ num_players: numPlayers })
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("Game started:", data); // Debugging: Log the response
-                    deck = data.deck;
-                    firstFlop = data.first_flop.slice(0, 3); // Show only the first 3 cards
-                    secondFlop = data.second_flop.slice(0, 3); // Show only the first 3 cards
-                    players = data.players;
-
-                    renderGame(data); // Update the UI with the game data
-
-                    // Replace the Start Game button with the Reveal Turn button
-                    document.getElementById('button-container').innerHTML = `
-                        <button class="button" onclick="revealTurn()">Reveal Turn</button>
-                    `;
-                })
-                .catch(error => {
-                    console.error("Error starting the game:", error);
-                });
+        function getCardColorClass(suit) {
+            return (suit === '♥' || suit === '♦') ? 'red' : '';
         }
 
         function revealTurn() {
             // Disable the prediction dropdowns
             document.getElementById("prediction-first-flop").disabled = true;
             document.getElementById("prediction-second-flop").disabled = true;
+
             // Add the 4th card to each flop
             firstFlop.push(deck.shift());
             if (secondFlop.length > 0) {
                 secondFlop.push(deck.shift());
             }
 
-            // Update the UI
+            // Update the UI for flops
             document.getElementById("first-flop").innerHTML = firstFlop.map(card => `
                 <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
                 </div>
@@ -643,6 +807,24 @@
                     <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
                     </div>
                 `).join('');
+            }
+
+            // Reveal all players' hands in Difficult mode
+            if (difficulty === "difficult") {
+                const playersContainer = document.getElementById("players");
+                playersContainer.innerHTML = "";
+                players.forEach((player, index) => {
+                    playersContainer.innerHTML += `
+                        <h3>Player ${index + 1}'s Hand</h3>
+                        <div class="player-hand">
+                            <div>
+                                ${player.map(card => `
+                                    <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
             }
 
             // Replace the Reveal Turn button with the Reveal River button
@@ -696,7 +878,7 @@
                 body: JSON.stringify({
                     players, // Send the array of player hands
                     first_flop: firstFlop,
-                    second_flop: secondFlop.length > 0 ? secondFlop : null, // Send null if second flop is not used
+                    second_flop: secondFlop.length > 0 ? secondFlop : null, // Include second flop if it exists
                     prediction_first: predictionFirstFlop,
                     prediction_second: predictionSecondFlop
                 })
@@ -710,27 +892,33 @@
                 .then(data => {
                     console.log("Response from /reveal_winner:", data); // Debugging: Log the response
 
+                    // Update the tally for the first flop
+                    updateTally(data.winner_first === predictionFirstFlop);
+
+                    // Update the tally for the second flop if it exists
+                    if (secondFlop.length > 0) {
+                        updateTally(data.winner_second === predictionSecondFlop);
+                    }
+
                     // Build the prediction results content
                     const predictionResult = `
                         <h3>First Flop Results</h3>
-                        <p>Prediction: ${predictionFirstFlop} - ${data.prediction_correct_first ? "Correct" : "Incorrect"}</p>
+                        <p>Prediction: ${predictionFirstFlop} - ${data.winner_first === predictionFirstFlop ? "Correct" : "Incorrect"}</p>
                         <p>Winner: ${data.winner_first}</p>
                         <p>Winning Hand: ${data.hand_type_first}</p>
                         <div>
                             ${data.best_hand_first.map(card => `
-                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                                </div>
+                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>
                             `).join('')}
                         </div>
-                        ${data.winner_second ? `
+                        ${secondFlop.length > 0 ? `
                         <h3>Second Flop Results</h3>
-                        <p>Prediction: ${predictionSecondFlop} - ${data.prediction_correct_second ? "Correct" : "Incorrect"}</p>
+                        <p>Prediction: ${predictionSecondFlop} - ${data.winner_second === predictionSecondFlop ? "Correct" : "Incorrect"}</p>
                         <p>Winner: ${data.winner_second}</p>
                         <p>Winning Hand: ${data.hand_type_second}</p>
                         <div>
                             ${data.best_hand_second.map(card => `
-                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                                </div>
+                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>
                             `).join('')}
                         </div>` : ""}
                     `;
@@ -749,49 +937,8 @@
                 });
         }
 
-        function startNewGame() {
-            location.reload(); // Reload the page to start a new game
-        }
-
         function getCardColorClass(suit) {
             return (suit === '♥' || suit === '♦') ? 'red' : '';
-        }
-
-        function renderGame(data) {
-            console.log("Rendering game data:", data); // Debugging: Log the data being rendered
-            const playersContainer = document.getElementById("players");
-            playersContainer.innerHTML = "";
-
-            // Render player hands
-            data.players.forEach((player, index) => {
-                playersContainer.innerHTML += `
-                    <h3>Player ${index + 1}'s Hand</h3>
-                    <div class="player-hand">
-                        <div>
-                            ${player.map(card => `
-                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            });
-
-            // Render the first 3 cards of the first flop
-            document.getElementById("first-flop").innerHTML = data.first_flop.slice(0, 3).map(card => `
-                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                </div>
-            `).join('');
-
-            // Render the first 3 cards of the second flop (if it exists)
-            if (data.second_flop.length > 0) {
-                document.getElementById("second-flop").innerHTML = data.second_flop.slice(0, 3).map(card => `
-                    <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                    </div>
-                `).join('');
-            } else {
-                document.getElementById("second-flop").innerHTML = ""; // Clear second flop if not used
-            }
         }
 
         function closePopup() {
@@ -804,9 +951,85 @@
             document.getElementById('popup-overlay').style.display = 'block';
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            renderPlayerOptions(); // Populate the dropdowns when the page loads
-        });
-    </script>
+        function updateTally(isCorrect) {
+            if (isCorrect) {
+                correctPredictions++;
+            }
+            totalPredictions++;
+
+            // Calculate percentage
+            const percentage = Math.round((correctPredictions / totalPredictions) * 100);
+
+            // Update the tally display
+            document.getElementById('tally').innerText = `Prediction Accuracy: ${percentage}% (${correctPredictions}/${totalPredictions})`;
+
+            // Save tally data to localStorage
+            localStorage.setItem('correctPredictions', correctPredictions);
+            localStorage.setItem('totalPredictions', totalPredictions);
+
+        }
+
+        function resetPredictionAccuracy() {
+            correctPredictions = 0;
+            totalPredictions = 0;
+            localStorage.removeItem('correctPredictions');
+            localStorage.removeItem('totalPredictions');
+
+            // Update the tally display
+            document.getElementById('tally').innerText = `Prediction Accuracy: 0% (0/0)`;
+
+            console.log("Prediction accuracy has been reset.");
+        }
+
+        let currentFlops = {
+            first_flop: { exposed: [], flipped: [] },
+            second_flop: { exposed: [], flipped: [] }
+        };
+
+        function revealCard(flop, index) {
+            fetch('/reveal_card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ flop, index, flops: currentFlops })
+            })
+            .then(response => response.json())
+            .then(data => {
+                currentFlops = data.flops;
+                updateFlopDisplay();
+            });
+        }
+
+        function updateFlopDisplay() {
+            // Update the UI to show exposed and flipped cards
+            // Example for first flop:
+            const firstFlopExposed = document.getElementById('first-flop-exposed');
+            const firstFlopFlipped = document.getElementById('first-flop-flipped');
+            firstFlopExposed.innerHTML = currentFlops.first_flop.exposed.map(card => `<div>${card.rank}${card.suit}</div>`).join('');
+            firstFlopFlipped.innerHTML = currentFlops.first_flop.flipped.map((_, index) => `<button onclick="revealCard('first_flop', ${index})">Flip</button>`).join('');
+        }
+
+        function revealCard(flop, index) {
+            console.log(`Revealing card from ${flop} at index ${index}`); // Debugging: Log the action
+            fetch('/reveal_card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ flop, index, flops: currentGameState })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Failed to reveal card");
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Card revealed successfully:", data); // Debugging: Log the response
+                currentGameState = data.flops;
+                renderGame();
+            })
+            .catch(error => {
+                console.error("Error revealing card:", error); // Debugging: Log any errors
+            });
+        }
+</script>
 </body>
 </html>
