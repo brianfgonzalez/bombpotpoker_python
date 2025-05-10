@@ -8,16 +8,16 @@
         body {
             font-family: 'Arial', sans-serif;
             background-image: url('https://static.vecteezy.com/system/resources/thumbnails/038/811/423/small_2x/ai-generated-beautiful-background-for-poker-game-advertising-free-photo.jpeg');
-            background-size: cover; /* Ensures the image covers the entire page */
-            background-position: center; /* Centers the image */
-            background-repeat: no-repeat; /* Prevents the image from repeating */
-            background-attachment: fixed; /* Keeps the background fixed during scrolling */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
             color: white;
             margin: 0;
             padding: 0;
         }
         #header {
-            display: none; /* Hide header initially */
+            display: none;
             justify-content: space-between;
             align-items: center;
             padding: 20px;
@@ -48,30 +48,26 @@
             transform: scale(1.05);
         }
         #game-area {
-            display: none; /* Hide header initially */
-            flex-direction: row; /* Align children side by side */
+            display: none;
+            flex-direction: row;
             justify-content: space-between;
-            align-items: flex-start; /* Align items to the top */
+            align-items: flex-start;
             padding: 20px;
             margin: 20px;
             background-color: rgba(0, 0, 0, 0.7);
             border-radius: 10px;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-            height: auto; /* Allow the container to adjust its height */
+            height: auto;
         }
-
         #player-cards {
-            flex: 1; /* Players' hands take up 30% of the width */
+            flex: 1;
             text-align: left;
-            margin-right: 20px; /* Add spacing between players' hands and flops */
-            max-width: 200px; /* Limit the width of the player hands section */
+            margin-right: 20px;
+            max-width: 200px;
         }
-
         #flops {
-            flex: 2; /* Players' hands take up 30% of the width */
-            /* max-width: 500px; /* Limit the width of the flops section */
+            flex: 2;
         }
-
         #flops-container {
             border: 2px solid white;
             border-radius: 10px;
@@ -79,12 +75,10 @@
             background-color: rgba(255, 255, 255, 0.1);
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
         }
-
         #first-flop-section,
         #second-flop-section {
             margin-bottom: 20px;
         }
-
         #first-flop-section h3,
         #second-flop-section h3 {
             margin-bottom: 10px;
@@ -95,13 +89,13 @@
             display: inline-block;
             margin: 5px;
             padding: 5px;
-            width: 50px; /* Make cards smaller */
-            height: 75px; /* Adjust height to match smaller width */
+            width: 50px;
+            height: 75px;
             border: 2px;
             border-radius: 8px;
             background-color: white;
             color: black;
-            font-size: 1rem; /* Adjust font size for smaller cards */
+            font-size: 1rem;
             font-weight: bold;
             text-align: right;
             line-height: 1.2;
@@ -109,11 +103,9 @@
             position: relative;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-
         .card.red {
             color: red;
         }
-
         .card:hover {
             transform: scale(1.1);
             box-shadow: 0 6px 10px rgba(0, 0, 0, 0.5);
@@ -124,384 +116,89 @@
             top: 5px;
             right: 5px;
         }
-        #winning-hand-section {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-            padding: 20px;
-            background-color: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        .card.flipped {
+            background-color: #444;
+            color: transparent;
+            border: 2px solid #666;
+            transform-style: preserve-3d;
+            transition: transform 0.6s ease;
         }
-        .winning-hand {
-            width: 45%;
-            background-color: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        }
-        .winning-hand h3 {
-            color: #FFD700;
-            margin-bottom: 10px;
-        }
-        .winning-hand p {
-            margin: 5px 0;
-        }
-        #settings {
-            display: block; /* Ensure the settings are visible by default */
-            margin: 20px;
-            padding: 20px;
-            background-color: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-        }
-
-        #players {
-            display: flex;
-            flex-wrap: wrap; /* Allow wrapping if there are multiple players */
-            gap: 20px; /* Add spacing between players' hands */
-        }
-
-        .player-hand {
-            position: relative; /* Enable positioning of cards within the hand */
-            width: 150px; /* Adjust the width of the player's hand */
-            height: 90px; /* Adjust height to fit the cards */
-            border: 2px;
-        }
-
-        .player-hand .card {
-            position: absolute; /* Position cards relative to the hand */
+        .card.flipped::after {
+            content: "";
+            position: absolute;
             top: 0;
             left: 0;
-            z-index: 1; /* Ensure cards stack properly */
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .player-hand .card:nth-child(1) {
-            z-index: 4; /* Ensure the first card is on top */
-            left: 0; /* No offset for the first card */
-        }
-
-        .player-hand .card:nth-child(2) {
-            z-index: 3;
-            left: 40px; /* Offset the second card slightly to the right */
-        }
-
-        .player-hand .card:nth-child(3) {
-            z-index: 2;
-            left: 80px; /* Offset the third card slightly more to the right */
-        }
-
-        .player-hand .card:nth-child(4) {
-            z-index: 1;
-            left: 120px; /* Offset the fourth card even more to the right */
-        }
-
-        .card {
-            width: 50px; /* Make cards smaller */
-            height: 75px; /* Adjust height to match smaller width */
-            border: 1px solid black;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                #666,
+                #666 10px,
+                #444 10px,
+                #444 20px
+            );
             border-radius: 8px;
+        }
+        .card.flipped.flipping {
+            transform: rotateY(180deg);
+        }
+        .card.exposed {
+            transform: rotateY(0deg);
             background-color: white;
             color: black;
-            font-size: 1rem; /* Adjust font size for smaller cards */
-            font-weight: bold;
-            text-align: right;
-            line-height: 1.2;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .flop-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #loading-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); /* Dark background with transparency */
+            z-index: 1000; /* Ensure it appears above other elements */
         }
 
-        .card.red {
-            color: red;
+        #settings {
+            text-align: center;
+            padding: 30px;
+            background-color: rgba(255, 255, 255, 0.1); /* Slightly transparent background */
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7); /* Strong shadow for emphasis */
+            color: white;
+            width: 400px; /* Fixed width for consistent layout */
         }
 
-        .card:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.5);
-        }
-        select:disabled {
-            background-color: #ccc;
-            color: #666;
-            cursor: not-allowed;
-        }
-        #prediction-section {
-            margin: 20px 20px;
-            padding: 15px;
-            background-color: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            /* text-align: center; */
+        #settings h2 {
+            margin-bottom: 20px;
+            font-size: 2rem;
+            color: #FFD700; /* Gold color for the title */
         }
 
-        #prediction-second-flop-section {
-            margin-top: 100px;
+        #settings label {
+            display: block;
+            margin: 10px 0;
+            font-size: 1.2rem;
         }
 
-        #prediction-section h3 {
-            color: #FFD700;
-            margin-bottom: 10px;
-        }
-
-        #prediction-section label {
-            margin-right: 10px;
-        }
-
-        #prediction-section select {
-            margin-bottom: 10px;
-            padding: 5px;
+        #settings select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
             border-radius: 5px;
             border: 1px solid #ccc;
-        }
-        #prediction-popup {
-            position: fixed; /* Make it fixed to the viewport */
-            top: 50%; /* Center vertically */
-            left: 50%; /* Center horizontally */
-            transform: translate(-50%, -50%); /* Adjust for centering */
-            z-index: 1000; /* Ensure it appears in front of everything */
-            background-color: rgba(0, 0, 0, 0.9); /* Dark background for the popup */
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            width: 300px; /* Set a fixed width */
-            text-align: center;
-            display: none; /* Initially hidden */
-        }
-
-        #popup-content h2 {
-            margin-top: 0;
-            color: #FFD700;
-        }
-
-        #popup-content button {
-            margin-top: 20px;
-            padding: 10px 20px;
             font-size: 1rem;
-            background-color: #444;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease;
         }
 
-        #popup-content button:hover {
-            background-color: #666;
-            transform: scale(1.05);
-        }
-
-        /* Add a semi-transparent background overlay */
-        #popup-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
+        #settings .button {
             width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
-            z-index: 999; /* Behind the popup but in front of everything else */
-            display: none; /* Initially hidden */
-        }
-        #prediction-popup {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-            background-color: rgba(0, 0, 0, 0.95); /* Slightly darker background */
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7); /* Stronger shadow for emphasis */
-            width: 450px; /* Increased width to fit hands in one row */
-            text-align: center;
-            display: none;
-        }
-
-        #popup-content h2 {
-            margin-top: 0;
-            color: #FFD700; /* Gold color for the title */
-            font-size: 2rem; /* Larger font size for emphasis */
-        }
-
-        #popup-content p {
-            font-size: 1.2rem; /* Slightly larger text for better readability */
-            margin: 10px 0;
-        }
-
-        #popup-content .card {
-            margin: 5px;
-            width: 60px; /* Slightly larger cards for better visibility */
-            height: 90px;
-        }
-
-        #popup-content button {
-            margin-top: 20px;
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            background-color: #FFD700; /* Gold button for emphasis */
-            color: black;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-        }
-
-        #popup-content button:hover {
-            background-color: #FFC107; /* Slightly lighter gold on hover */
-            transform: scale(1.05);
-        }
-
-        #popup-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7); /* Darker overlay */
-            z-index: 999;
-            display: none;
-        }
-
-
-        #button-container {
-            display: flex;
-            justify-content: center; /* Center the button */
-            align-items: center;
-            margin-top: 20px;
-        }
-        @media (max-width: 768px) {
-            body {
-                font-size: 14px;
-                padding: 10px;
-            }
-
-            #header {
-                flex-direction: column;
-                padding: 10px;
-            }
-
-            #title {
-                font-size: 1.5rem;
-                text-align: center;
-            }
-
-            #button-container {
-                flex-direction: column;
-                align-items: center;
-                margin-top: 10px;
-            }
-
-            .button {
-                padding: 10px 20px;
-                font-size: 1rem;
-                margin-bottom: 10px;
-            }
-
-            #game-area {
-                flex-direction: column;
-                padding: 10px;
-            }
-
-            #player-cards {
-                margin-right: 0;
-                max-width: 100%;
-            }
-
-            #flops {
-                margin-top: 20px;
-            }
-
-            #flops-container {
-                padding: 10px;
-            }
-            #flops-container .card {
-                margin: 1px;
-            }
-
-            .card {
-                width: 40px;
-                height: 60px;
-                font-size: 0.8rem;
-            }
-
-            #winning-hand-section {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .winning-hand {
-                width: 90%;
-                margin-bottom: 20px;
-            }
-
-            #settings {
-                padding: 10px;
-            }
-
-            #prediction-section {
-                padding: 10px;
-            }
-
-            #popup-content {
-                width: 90%;
-                padding: 15px;
-            }
-
-            #popup-content h2 {
-                font-size: 1.5rem;
-            }
-
-            #popup-content button {
-                font-size: 1rem;
-                padding: 10px 15px;
-            }
-            #prediction-result {
-                font-size: 0.9rem;
-                line-height: 1.2;
-            }
-
-            #prediction-result h3 {
-                font-size: 1.2rem;
-                margin-bottom: 5px;
-            }
-
-            #prediction-result p {
-                margin: 5px 0;
-            }
-
-            #prediction-result .card {
-                width: 35px;
-                height: 50px;
-                font-size: 0.7rem;
-                margin: 3px;
-            }
-
-            #popup-content {
-                width: 95%;
-                padding: 10px;
-            }
-
-            #popup-content h2 {
-                font-size: 1.3rem;
-                margin-bottom: 10px;
-            }
-
-            #popup-content button {
-                font-size: 0.9rem;
-                padding: 8px 12px;
-            }
-        }
-        .card {
-            display: inline-block;
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid black;
-            background-color: white;
-        }
-        button {
-            margin: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -518,102 +215,57 @@
                 <option value="5">5</option>
                 <option value="6">6</option>
             </select>
-
             <label for="difficulty">Select Difficulty:</label>
             <select id="difficulty" onchange="updateDifficulty()">
                 <option value="easy">Easy</option>
                 <option value="difficult">Difficult</option>
             </select>
-
             <button class="button" id="start-game-button" onclick="startGame()">Start Game</button>
             <button class="button" id="reset-prediction-button" onclick="resetPredictionAccuracy()">Reset Prediction Accuracy</button>
         </div>
     </div>
 
-    <!-- Main Game Area -->
-    <div id="header-section">
-        <div id="button-container">
-            <!-- Buttons will be dynamically added here -->
-        </div>
-        <h1 id="title">Bombpot Poker</h1>
-    </div>
-
-    <div id="game-area">
-        <div id="player-cards">
-            <div id="players">Player hands go here</div>
-        </div>
-
-        <div id="flops">
-            <div id="flops-container">
-                <div id="first-flop-section">
-                    <h3>First Flop</h3>
-                    <label for="prediction-first-flop">
-                        <!-- Prediction label will be dynamically added here -->
-                    </label>
-                    <select id="prediction-first-flop">
-                        <!-- Player options will be dynamically added here -->
-                    </select>
-                    <div id="first-flop">First flop cards go here</div>
-                    <div id="first-flop-exposed"></div>
-                    <div id="first-flop-flipped"></div>
-                </div>
-                <div id="second-flop-section">
-                    <h3>Second Flop</h3>
-                    <label for="prediction-second-flop">
-                        <!-- Prediction label will be dynamically added here -->
-                    </label>
-                    <select id="prediction-second-flop">
-                        <!-- Player options will be dynamically added here -->
-                    </select>
-                    <div id="second-flop">Second flop cards go here</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="winning-hand-section" style="display: none;">
-        <div class="winning-hand" id="winning-hand-1"></div>
-        <div class="winning-hand" id="winning-hand-2"></div>
-    </div>
-
-    <!-- Popup Overlay -->
-    <div id="popup-overlay"></div>
-
-    <!-- Popup for Prediction Results -->
-    <div id="prediction-popup">
-        <div id="popup-content">
-            <h2>Prediction Results</h2>
-            <div id="prediction-result">
-                <!-- Prediction and flop results will be dynamically added here -->
-            </div>
-            <button class="button" onclick="closePopup()">Close</button>
-        </div>
-    </div>
-
+    <!-- Tally Section -->
     <div id="tally" style="position: absolute; top: 10px; left: 10px; background-color: rgba(0, 0, 0, 0.7); color: white; padding: 10px; border-radius: 5px;">
         Prediction Accuracy: 0% (0/0)
     </div>
 
+    <!-- Main Game Area -->
+    <div id="game-area">
+        <div id="player-cards">
+            <div id="players">Player hands go here</div>
+        </div>
+        <div id="flops">
+            <div id="flops-container">
+                <div id="first-flop-section">
+                    <h3>First Flop</h3>
+                    <label for="prediction-first-flop"></label>
+                    <select id="prediction-first-flop"></select>
+                    <div id="first-flop">First flop cards go here</div>
+                </div>
+                <div id="second-flop-section">
+                    <h3>Second Flop</h3>
+                    <label for="prediction-second-flop"></label>
+                    <select id="prediction-second-flop"></select>
+                    <div id="second-flop">Second flop cards go here</div>
+                </div>
+            </div>
+        </div>
+        <div id="button-container">
+            <!-- Buttons will be dynamically added here -->
+        </div>
+    </div>
     <script>
-        let deck = [];
+        let totalPredictions = 0;
+        let currentGameState = {};
+        let correctPredictions = 0;
+        let numPlayers = 2;
+        let difficulty = "easy";
         let firstFlop = [];
         let secondFlop = [];
         let players = [];
-        let numPlayers = 2;
-        let numFlops = 2;
-        let predictionFirstFlop = "Player 1";
-        let predictionSecondFlop = "Player 1";
-        let difficulty = "easy"; // Default difficulty
-        let correctPredictions = 0;
-        let totalPredictions = 0;
-        let currentGameState = {};
-
-        function startNewGame() {
-            location.reload(); // Reload the page to start a new game
-        }
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Prepopulate game settings from localStorage
             const savedNumPlayers = localStorage.getItem('numPlayers');
             const savedDifficulty = localStorage.getItem('difficulty');
 
@@ -627,23 +279,29 @@
                 document.getElementById("difficulty").value = difficulty;
             }
 
-            renderPlayerOptions(); // Populate the dropdowns when the page loads
+            renderPlayerOptions();
 
-            // Load tally data from localStorage
             correctPredictions = parseInt(localStorage.getItem('correctPredictions')) || 0;
             totalPredictions = parseInt(localStorage.getItem('totalPredictions')) || 0;
 
-            // Update the tally display on page load
-            const percentage = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
-            document.getElementById('tally').innerText = `Prediction Accuracy: ${percentage}% (${correctPredictions}/${totalPredictions})`;
+            const tallyElement = document.getElementById('tally');
+            if (tallyElement) {
+                const percentage = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
+                tallyElement.innerText = `Prediction Accuracy: ${percentage}% (${correctPredictions}/${totalPredictions})`;
+            } else {
+                console.error("Error: 'tally' element not found.");
+            }
         });
 
+        function startNewGame() {
+            location.reload();
+        }
+
         function startGame() {
-            console.log("Starting game..."); // Debugging: Log when the function is called
             fetch('/start_game', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ num_players: 2, num_flops: 2 })
+                body: JSON.stringify({ num_players: numPlayers, num_flops: 2 })
             })
             .then(response => {
                 if (!response.ok) {
@@ -652,27 +310,24 @@
                 return response.json();
             })
             .then(data => {
-                console.log("Game started successfully:", data); // Debugging: Log the response
                 currentGameState = data;
-
-                // Extract exposed cards from the first and second flops
-                firstFlop = data.first_flop.exposed; // Use the 'exposed' property
-                secondFlop = data.second_flop ? data.second_flop.exposed : []; // Use the 'exposed' property if it exists
+                firstFlop = data.first_flop.exposed;
+                secondFlop = data.second_flop ? data.second_flop.exposed : [];
                 players = data.players;
 
-                // Show the game area
-                document.getElementById("settings").style.display = "none";
+                document.getElementById("loading-screen").style.display = "none";
                 document.getElementById("game-area").style.display = "flex";
+                renderGame(data);
 
-                renderGame(data); // Update the UI with the game data
-
-                // Replace the Start Game button with the Reveal Turn button
-                document.getElementById('button-container').innerHTML = `
-                    <button class="button" onclick="revealTurn()">Reveal Turn</button>
-                `;
+                const buttonContainer = document.getElementById('button-container');
+                if (buttonContainer) {
+                    buttonContainer.innerHTML = `<button class="button" onclick="revealTurn()">Reveal Turn</button>`;
+                } else {
+                    console.error("Error: 'button-container' element not found.");
+                }
             })
             .catch(error => {
-                console.error("Error starting the game:", error); // Debugging: Log any errors
+                console.error("Error starting the game:", error);
             });
         }
 
@@ -682,12 +337,10 @@
             const firstFlopLabel = document.querySelector('label[for="prediction-first-flop"]');
             const secondFlopLabel = document.querySelector('label[for="prediction-second-flop"]');
 
-            // Clear existing options
             firstFlopDropdown.innerHTML = "";
             secondFlopDropdown.innerHTML = "";
 
             if (difficulty === "easy") {
-                // Add player options for Easy mode
                 for (let i = 1; i <= numPlayers; i++) {
                     const option = `<option value="Player ${i}">Player ${i}</option>`;
                     firstFlopDropdown.innerHTML += option;
@@ -696,89 +349,107 @@
                 firstFlopLabel.textContent = "Select Winner:";
                 secondFlopLabel.textContent = "Select Winner:";
             } else {
-                // Add win/lose options for Player 1 in Difficult mode
-                firstFlopDropdown.innerHTML = `
-                    <option value="Player 1">Yes</option>
-                    <option value="Other Player">No</option>
-                `;
-                secondFlopDropdown.innerHTML = `
-                    <option value="Player 1">Yes</option>
-                    <option value="Other Player">No</option>
-                `;
+                firstFlopDropdown.innerHTML = `<option value="Player 1">Yes</option><option value="Other Player">No</option>`;
+                secondFlopDropdown.innerHTML = `<option value="Player 1">Yes</option><option value="Other Player">No</option>`;
                 firstFlopLabel.textContent = "Will Player 1 win?";
                 secondFlopLabel.textContent = "Will Player 1 win?";
             }
         }
 
         function renderGame() {
-            console.log("Rendering game state:", currentGameState); // Debugging: Log the current game state
-
             const playersContainer = document.getElementById('players');
             const firstFlopContainer = document.getElementById('first-flop');
             const secondFlopContainer = document.getElementById('second-flop');
 
-            // Render players' cards
             playersContainer.innerHTML = currentGameState.players.map((player, index) => `
                 <div>
                     <h3>Player ${index + 1}</h3>
                     <div class="player-cards player-hand">
-                        ${player.cards.map(card => `<div class="card">${card.rank}${card.suit}</div>`).join('')}
+                        ${player.cards.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
                     </div>
                 </div>
             `).join('');
-            console.log("Players rendered:", playersContainer.innerHTML); // Debugging: Log the rendered players
 
-            // Render first flop
             firstFlopContainer.innerHTML = `
-                <h3>First Flop</h3>
-                <div class="flop-exposed">
-                    Exposed: ${currentGameState.first_flop.exposed.map(card => `<div class="card">${card.rank}${card.suit}</div>`).join('')}
-                </div>
-                <div class="flop-flipped">
-                    Flipped: ${currentGameState.first_flop.flipped.map((_, index) => `<button onclick="revealCard('first_flop', ${index})">Flip</button>`).join('')}
+                <div class="flop-container">
+                    ${currentGameState.first_flop.exposed.map(card => `<div class="card exposed ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
+                    ${currentGameState.first_flop.flipped.map((_, index) => `<div class="card flipped" id="first-flop-flipped-${index}" onclick="flipCard('first-flop', ${index})"></div>`).join('')}
                 </div>
             `;
-            console.log("First flop rendered:", firstFlopContainer.innerHTML); // Debugging: Log the rendered first flop
 
-            // Render second flop if it exists
             if (currentGameState.second_flop) {
                 secondFlopContainer.innerHTML = `
-                    <h3>Second Flop</h3>
-                    <div class="flop-exposed">
-                        Exposed: ${currentGameState.second_flop.exposed.map(card => `<div class="card">${card.rank}${card.suit}</div>`).join('')}
-                    </div>
-                    <div class="flop-flipped">
-                        Flipped: ${currentGameState.second_flop.flipped.map((_, index) => `<button onclick="revealCard('second_flop', ${index})">Flip</button>`).join('')}
+                    <div class="flop-container">
+                        ${currentGameState.second_flop.exposed.map(card => `<div class="card exposed ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
+                        ${currentGameState.second_flop.flipped.map((_, index) => `<div class="card flipped" id="second-flop-flipped-${index}" onclick="flipCard('second-flop', ${index})"></div>`).join('')}
                     </div>
                 `;
-                console.log("Second flop rendered:", secondFlopContainer.innerHTML); // Debugging: Log the rendered second flop
             } else {
                 secondFlopContainer.innerHTML = '';
             }
         }
 
-        function updatePlayers() {
-            numPlayers = parseInt(document.getElementById("num-players").value);
-            localStorage.setItem('numPlayers', numPlayers); // Save to localStorage
-            renderPlayerOptions(); // Re-render the dropdowns when the number of players changes
+        function flipCard(flop, index) {
+            const flippedCard = document.getElementById(`${flop}-flipped-${index}`);
+            if (flippedCard) {
+                flippedCard.classList.add('flipping');
+                const flopKeyMap = {
+                    'first-flop': 'first_flop',
+                    'second-flop': 'second_flop'
+                };
+                const payload = {
+                    flop: flopKeyMap[flop],
+                    index: index,
+                    flops: {
+                        first_flop: currentGameState.first_flop,
+                        second_flop: currentGameState.second_flop
+                    }
+                };
+                setTimeout(() => {
+                    fetch('/reveal_card', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Failed to reveal card: ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.error) {
+                            console.error("Error from server:", data.error);
+                            return;
+                        }
+                        currentGameState.first_flop = data.flops.first_flop;
+                        currentGameState.second_flop = data.flops.second_flop;
+                        flippedCard.classList.remove('flipping');
+                        renderGame();
+                    })
+                    .catch(error => {
+                        console.error("Error revealing card:", error);
+                    });
+                }, 600);
+            } else {
+                console.error(`Flipped card element not found for flop: ${flop}, index: ${index}`);
+            }
         }
 
-        function updateFlops() {
-            numFlops = parseInt(document.getElementById("num-flops").value);
-            renderPlayerOptions(); // Re-render the dropdowns when the number of flops changes
+        function updatePlayers() {
+            numPlayers = parseInt(document.getElementById("num-players").value);
+            localStorage.setItem('numPlayers', numPlayers);
+            renderPlayerOptions();
         }
 
         function updateDifficulty() {
             difficulty = document.getElementById("difficulty").value;
-            localStorage.setItem('difficulty', difficulty); // Save to localStorage
-            renderPlayerOptions(); // Re-render the dropdowns based on difficulty
-
-            // Ensure players array is initialized before rendering the game
+            localStorage.setItem('difficulty', difficulty);
+            renderPlayerOptions();
             if (!players || players.length === 0) {
-                console.warn("Players data is not initialized. Skipping renderGame.");
                 return;
             }
-                renderGame({ players, first_flop: firstFlop, second_flop: secondFlop }); // Re-render the game area
+            renderGame({ players, first_flop: firstFlop, second_flop: secondFlop });
         }
 
         function getCardColorClass(suit) {
@@ -786,30 +457,16 @@
         }
 
         function revealTurn() {
-            // Disable the prediction dropdowns
             document.getElementById("prediction-first-flop").disabled = true;
             document.getElementById("prediction-second-flop").disabled = true;
-
-            // Add the 4th card to each flop
             firstFlop.push(deck.shift());
             if (secondFlop.length > 0) {
                 secondFlop.push(deck.shift());
             }
-
-            // Update the UI for flops
-            document.getElementById("first-flop").innerHTML = firstFlop.map(card => `
-                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                </div>
-            `).join('');
-
+            document.getElementById("first-flop").innerHTML = firstFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
             if (secondFlop.length > 0) {
-                document.getElementById("second-flop").innerHTML = secondFlop.map(card => `
-                    <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                    </div>
-                `).join('');
+                document.getElementById("second-flop").innerHTML = secondFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
             }
-
-            // Reveal all players' hands in Difficult mode
             if (difficulty === "difficult") {
                 const playersContainer = document.getElementById("players");
                 playersContainer.innerHTML = "";
@@ -818,127 +475,76 @@
                         <h3>Player ${index + 1}'s Hand</h3>
                         <div class="player-hand">
                             <div>
-                                ${player.map(card => `
-                                    <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>
-                                `).join('')}
+                                ${player.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
                             </div>
                         </div>
                     `;
                 });
             }
-
-            // Replace the Reveal Turn button with the Reveal River button
-            document.getElementById('button-container').innerHTML = `
-                <button class="button" onclick="revealRiver()">Reveal River</button>
-            `;
+            document.getElementById('button-container').innerHTML = `<button class="button" onclick="revealRiver()">Reveal River</button>`;
         }
 
         function revealRiver() {
-            // Add the 5th card to each flop
             firstFlop.push(deck.shift());
             if (secondFlop.length > 0) {
                 secondFlop.push(deck.shift());
             }
-
-            // Update the UI
-            document.getElementById("first-flop").innerHTML = firstFlop.map(card => `
-                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                </div>
-            `).join('');
-
+            document.getElementById("first-flop").innerHTML = firstFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
             if (secondFlop.length > 0) {
-                document.getElementById("second-flop").innerHTML = secondFlop.map(card => `
-                    <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}">
-                    </div>
-                `).join('');
+                document.getElementById("second-flop").innerHTML = secondFlop.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('');
             }
-
-            // Replace the Reveal River button with the Reveal Winner button
-            document.getElementById('button-container').innerHTML = `
-                <button class="button" onclick="revealWinner()">Reveal Winner</button>
-            `;
+            document.getElementById('button-container').innerHTML = `<button class="button" onclick="revealWinner()">Reveal Winner</button>`;
         }
 
         function revealWinner() {
-            // Get predictions for each flop
-            predictionFirstFlop = document.getElementById("prediction-first-flop").value;
-            predictionSecondFlop = document.getElementById("prediction-second-flop").value;
-
-            console.log("Sending data to /reveal_winner:", {
-                players,
-                first_flop: firstFlop,
-                second_flop: secondFlop.length > 0 ? secondFlop : null,
-                prediction_first: predictionFirstFlop,
-                prediction_second: predictionSecondFlop
-            });
-
+            const predictionFirstFlop = document.getElementById("prediction-first-flop").value;
+            const predictionSecondFlop = document.getElementById("prediction-second-flop").value;
             fetch('/reveal_winner', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    players, // Send the array of player hands
+                    players,
                     first_flop: firstFlop,
-                    second_flop: secondFlop.length > 0 ? secondFlop : null, // Include second flop if it exists
+                    second_flop: secondFlop.length > 0 ? secondFlop : null,
                     prediction_first: predictionFirstFlop,
                     prediction_second: predictionSecondFlop
                 })
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("Response from /reveal_winner:", data); // Debugging: Log the response
-
-                    // Update the tally for the first flop
-                    updateTally(data.winner_first === predictionFirstFlop);
-
-                    // Update the tally for the second flop if it exists
-                    if (secondFlop.length > 0) {
-                        updateTally(data.winner_second === predictionSecondFlop);
-                    }
-
-                    // Build the prediction results content
-                    const predictionResult = `
-                        <h3>First Flop Results</h3>
-                        <p>Prediction: ${predictionFirstFlop} - ${data.winner_first === predictionFirstFlop ? "Correct" : "Incorrect"}</p>
-                        <p>Winner: ${data.winner_first}</p>
-                        <p>Winning Hand: ${data.hand_type_first}</p>
-                        <div>
-                            ${data.best_hand_first.map(card => `
-                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>
-                            `).join('')}
-                        </div>
-                        ${secondFlop.length > 0 ? `
-                        <h3>Second Flop Results</h3>
-                        <p>Prediction: ${predictionSecondFlop} - ${data.winner_second === predictionSecondFlop ? "Correct" : "Incorrect"}</p>
-                        <p>Winner: ${data.winner_second}</p>
-                        <p>Winning Hand: ${data.hand_type_second}</p>
-                        <div>
-                            ${data.best_hand_second.map(card => `
-                                <div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>
-                            `).join('')}
-                        </div>` : ""}
-                    `;
-
-                    // Update the popup content
-                    document.getElementById('prediction-result').innerHTML = predictionResult;
-                    showPopup();
-
-                    // Replace the Reveal Winner button with the Start New Game button
-                    document.getElementById('button-container').innerHTML = `
-                        <button class="button" onclick="startNewGame()">Start New Game</button>
-                    `;
-                })
-                .catch(error => {
-                    console.error("Error revealing the winner:", error);
-                });
-        }
-
-        function getCardColorClass(suit) {
-            return (suit === '♥' || suit === '♦') ? 'red' : '';
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                updateTally(data.winner_first === predictionFirstFlop);
+                if (secondFlop.length > 0) {
+                    updateTally(data.winner_second === predictionSecondFlop);
+                }
+                const predictionResult = `
+                    <h3>First Flop Results</h3>
+                    <p>Prediction: ${predictionFirstFlop} - ${data.winner_first === predictionFirstFlop ? "Correct" : "Incorrect"}</p>
+                    <p>Winner: ${data.winner_first}</p>
+                    <p>Winning Hand: ${data.hand_type_first}</p>
+                    <div>
+                        ${data.best_hand_first.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
+                    </div>
+                    ${secondFlop.length > 0 ? `
+                    <h3>Second Flop Results</h3>
+                    <p>Prediction: ${predictionSecondFlop} - ${data.winner_second === predictionSecondFlop ? "Correct" : "Incorrect"}</p>
+                    <p>Winner: ${data.winner_second}</p>
+                    <p>Winning Hand: ${data.hand_type_second}</p>
+                    <div>
+                        ${data.best_hand_second.map(card => `<div class="card ${getCardColorClass(card.suit)}" data-rank="${card.rank}" data-suit="${card.suit}"></div>`).join('')}
+                    </div>` : ""}
+                `;
+                document.getElementById('prediction-result').innerHTML = predictionResult;
+                showPopup();
+                document.getElementById('button-container').innerHTML = `<button class="button" onclick="startNewGame()">Start New Game</button>`;
+            })
+            .catch(error => {
+                console.error("Error revealing the winner:", error);
+            });
         }
 
         function closePopup() {
@@ -956,17 +562,10 @@
                 correctPredictions++;
             }
             totalPredictions++;
-
-            // Calculate percentage
             const percentage = Math.round((correctPredictions / totalPredictions) * 100);
-
-            // Update the tally display
             document.getElementById('tally').innerText = `Prediction Accuracy: ${percentage}% (${correctPredictions}/${totalPredictions})`;
-
-            // Save tally data to localStorage
             localStorage.setItem('correctPredictions', correctPredictions);
             localStorage.setItem('totalPredictions', totalPredictions);
-
         }
 
         function resetPredictionAccuracy() {
@@ -974,62 +573,8 @@
             totalPredictions = 0;
             localStorage.removeItem('correctPredictions');
             localStorage.removeItem('totalPredictions');
-
-            // Update the tally display
             document.getElementById('tally').innerText = `Prediction Accuracy: 0% (0/0)`;
-
-            console.log("Prediction accuracy has been reset.");
         }
-
-        let currentFlops = {
-            first_flop: { exposed: [], flipped: [] },
-            second_flop: { exposed: [], flipped: [] }
-        };
-
-        function revealCard(flop, index) {
-            fetch('/reveal_card', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ flop, index, flops: currentFlops })
-            })
-            .then(response => response.json())
-            .then(data => {
-                currentFlops = data.flops;
-                updateFlopDisplay();
-            });
-        }
-
-        function updateFlopDisplay() {
-            // Update the UI to show exposed and flipped cards
-            // Example for first flop:
-            const firstFlopExposed = document.getElementById('first-flop-exposed');
-            const firstFlopFlipped = document.getElementById('first-flop-flipped');
-            firstFlopExposed.innerHTML = currentFlops.first_flop.exposed.map(card => `<div>${card.rank}${card.suit}</div>`).join('');
-            firstFlopFlipped.innerHTML = currentFlops.first_flop.flipped.map((_, index) => `<button onclick="revealCard('first_flop', ${index})">Flip</button>`).join('');
-        }
-
-        function revealCard(flop, index) {
-            console.log(`Revealing card from ${flop} at index ${index}`); // Debugging: Log the action
-            fetch('/reveal_card', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ flop, index, flops: currentGameState })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Failed to reveal card");
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log("Card revealed successfully:", data); // Debugging: Log the response
-                currentGameState = data.flops;
-                renderGame();
-            })
-            .catch(error => {
-                console.error("Error revealing card:", error); // Debugging: Log any errors
-            });
-        }
-</script>
+    </script>
 </body>
 </html>
