@@ -23,6 +23,16 @@ def shuffle_deck():
     random.shuffle(deck)  # Shuffle the deck
     return deck
 
+def compare_two_pair(hand1, hand2):
+    # hand1 and hand2 are tuples: (rank, [pair1, pair2, kicker])
+    # Higher pair wins, then lower pair, then kicker
+    for i in range(3):
+        if hand1[1][i] > hand2[1][i]:
+            return 1
+        elif hand1[1][i] < hand2[1][i]:
+            return -1
+    return 0
+
 def evaluate_hand(cards):
     suits = [card['suit'] for card in cards]
     ranks = [card['rank'] for card in cards]
@@ -30,7 +40,6 @@ def evaluate_hand(cards):
     rank_counts = {rank: ranks.count(rank) for rank in ranks}
     unique_suits = set(suits)
 
-    # Mapping of hand scores to hand types
     hand_types = {
         0: "High Card",
         1: "One Pair",
@@ -40,7 +49,6 @@ def evaluate_hand(cards):
         7: "Four of a Kind"
     }
 
-    # Helper to sort cards by rank
     def card_sort_key(card):
         return rank_order.index(card['rank'])
 
@@ -48,20 +56,54 @@ def evaluate_hand(cards):
     if len(unique_suits) == 1:
         return (6, hand_types[6], sorted(cards, key=card_sort_key, reverse=True))  # Flush
 
-    # Check for pairs, three of a kind, four of a kind
+    # Four of a Kind
     if 4 in rank_counts.values():
-        return (7, hand_types[7], sorted(cards, key=lambda card: rank_counts[card['rank']], reverse=True))  # Four of a Kind
-    if 3 in rank_counts.values() and 2 in rank_counts.values():
-        return (6, "Full House", sorted(cards, key=lambda card: rank_counts[card['rank']], reverse=True))  # Full House
-    if 3 in rank_counts.values():
-        return (3, hand_types[3], sorted(cards, key=lambda card: rank_counts[card['rank']], reverse=True))  # Three of a Kind
-    if list(rank_counts.values()).count(2) == 2:
-        return (2, hand_types[2], sorted(cards, key=lambda card: rank_counts[card['rank']], reverse=True))  # Two Pair
-    if 2 in rank_counts.values():
-        return (1, hand_types[1], sorted(cards, key=lambda card: rank_counts[card['rank']], reverse=True))  # One Pair
+        return (7, hand_types[7], sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))  # Four of a Kind
 
-    # Default to high card
+    # Full House
+    if 3 in rank_counts.values() and 2 in rank_counts.values():
+        return (6, "Full House", sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))  # Full House
+
+    # Three of a Kind
+    if 3 in rank_counts.values():
+        return (3, hand_types[3], sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))  # Three of a Kind
+
+    # Two Pair
+    if list(rank_counts.values()).count(2) == 2:
+        pairs = sorted([rank for rank, count in rank_counts.items() if count == 2], key=rank_order.index, reverse=True)
+        kicker = sorted([rank for rank, count in rank_counts.items() if count == 1], key=rank_order.index, reverse=True)[0]
+        return (2, [pairs[0], pairs[1], kicker], sorted(cards, key=card_sort_key, reverse=True))  # Two Pair
+
+    # One Pair
+    if 2 in rank_counts.values():
+        pair_rank = max([rank for rank, count in rank_counts.items() if count == 2], key=lambda r: rank_order.index(r))
+        kickers = sorted([rank for rank, count in rank_counts.items() if count == 1], key=rank_order.index, reverse=True)
+        # Sort cards: pair cards first (highest pair), then kickers in order
+        sorted_cards = (
+            [card for card in cards if card['rank'] == pair_rank] +
+            sorted([card for card in cards if card['rank'] != pair_rank], key=card_sort_key, reverse=True)
+        )
+        return (1, [pair_rank] + kickers, sorted_cards)  # One Pair
+
+    # High Card
     return (0, hand_types[0], sorted(cards, key=card_sort_key, reverse=True))  # High Card
+
+def compare_hands(hand1, hand2):
+    # hand1 and hand2 are tuples: (rank, tiebreakers)
+    if hand1[0] > hand2[0]:
+        return 1
+    elif hand1[0] < hand2[0]:
+        return -1
+    # If both are two pair, use special comparison
+    if hand1[0] == 2:  # TWO_PAIR
+        return compare_two_pair(hand1, hand2)
+    # Fallback: compare tiebreakers in order
+    for a, b in zip(hand1[1], hand2[1]):
+        if a > b:
+            return 1
+        elif a < b:
+            return -1
+    return 0
 
 def determine_winner(hand1, hand2, flop):
     # Define rank order for comparing card ranks
@@ -193,6 +235,19 @@ def reveal_card():
         if not flop or not isinstance(index, int) or not flops:
             app.logger.error(f"Invalid payload structure: {data}")  # Debugging
             return jsonify({'error': 'Invalid request payload. Missing or invalid "flop", "index", or "flops" key.'}), 400
+
+        # Enforce: 5th card cannot be revealed until both 4th cards are revealed
+        # Only applies if both flops exist and have 2 flipped cards each
+        if (
+            flop in ["first_flop", "second_flop"]
+            and len(flops.get("first_flop", {}).get("flipped", [])) + len(flops.get("second_flop", {}).get("flipped", [])) == 2
+            and len(flops[flop]['flipped']) == 1
+            and index == 1  # Trying to reveal the 5th card (index 1 in flipped)
+        ):
+            # Only allow if the other flop has no flipped cards left (i.e., its 4th card is already revealed)
+            other_flop = "second_flop" if flop == "first_flop" else "first_flop"
+            if len(flops.get(other_flop, {}).get("flipped", [])) > 1:
+                return jsonify({'error': 'You must reveal the 4th card on both flops before revealing the 5th card.'}), 403
 
         if flop not in flops or index >= len(flops[flop]['flipped']):
             app.logger.error(f"Invalid flop or index: flop={flop}, index={index}, flops={flops}")  # Debugging
