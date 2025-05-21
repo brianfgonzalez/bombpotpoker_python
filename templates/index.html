@@ -554,8 +554,436 @@
 
         function PokerGame() {
             console.log("PokerGame rendering");
-            // --- TEMP: Minimal render for troubleshooting ---
-            return React.createElement('div', { style: { color: 'yellow', fontSize: 32, textAlign: 'center', marginTop: '2rem' } }, "React is working!");
+            // --- Restore all state hooks before any logic or return ---
+            const [players, setPlayers] = useState([]);
+            const [firstFlop, setFirstFlop] = useState({ exposed: [], flipped: [] });
+            const [secondFlop, setSecondFlop] = useState({ exposed: [], flipped: [] });
+            const [numPlayers, setNumPlayers] = useState(2);
+            const [difficulty, setDifficulty] = useState("easy");
+            const [loading, setLoading] = useState(false);
+            const [winner, setWinner] = useState(null);
+            const [error, setError] = useState(null);
+            const [predictionFirst, setPredictionFirst] = useState("");
+            const [predictionSecond, setPredictionSecond] = useState("");
+            const [gameStarted, setGameStarted] = useState(false);
+            const [skipOptions, setSkipOptions] = useState(false);
+            const [correctPredictions, setCorrectPredictions] = useState(() => Number(localStorage.getItem('correctPredictions')) || 0);
+            const [totalPredictions, setTotalPredictions] = useState(() => Number(localStorage.getItem('totalPredictions')) || 0);
+            const [lastFlippedFirst, setLastFlippedFirst] = useState(null);
+            const [lastFlippedSecond, setLastFlippedSecond] = useState(null);
+            const [allCardsRevealed, setAllCardsRevealed] = useState(false);
+            const [highlightPrediction, setHighlightPrediction] = useState(true);
+            const [highlightFourth, setHighlightFourth] = useState(false);
+            const [predictionsLocked, setPredictionsLocked] = useState(false);
+            const [playerName, setPlayerName] = useState(() => localStorage.getItem('playerName') || "");
+            const [leaderboard, setLeaderboard] = useState([]);
+            const [leaderboardJustUpdated, setLeaderboardJustUpdated] = useState(false);
+            const bottomRef = useRef(null);
+            const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+            const [selectGlowFirst, setSelectGlowFirst] = useState(false);
+            const [selectGlowSecond, setSelectGlowSecond] = useState(false);
+
+            // --- FIX: Define isGameOptionsPage before using it ---
+            const isGameOptionsPage = window.location.pathname === "/" || window.location.pathname === "/game-options";
+
+            // --- Add the startGame function inside PokerGame ---
+            function startGame(skipLeaderboard = false) {
+                // Example: POST to /start_game and update state
+                setLoading(true);
+                fetch('/start_game', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        num_players: numPlayers,
+                        num_flops: 2
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    setPlayers(data.players || []);
+                    setFirstFlop(data.first_flop || { exposed: [], flipped: [] });
+                    setSecondFlop(data.second_flop || { exposed: [], flipped: [] });
+                    setGameStarted(true);
+                    setSkipOptions(skipLeaderboard);
+                    setLoading(false);
+                    setWinner(null);
+                    setError(null);
+                    setPredictionFirst("");
+                    setPredictionSecond("");
+                    setLastFlippedFirst(null);
+                    setLastFlippedSecond(null);
+                    setAllCardsRevealed(false);
+                    setHighlightPrediction(true);
+                    setHighlightFourth(false);
+                    setPredictionsLocked(false);
+                })
+                .catch(err => {
+                    setError("Failed to start game.");
+                    setLoading(false);
+                });
+            }
+
+            // --- Add the flipCard function inside PokerGame ---
+            function flipCard(flopKey, flippedIdx) {
+                // Determine which flop to update
+                const flops = {
+                    first_flop: { ...firstFlop },
+                    second_flop: { ...secondFlop }
+                };
+                // Defensive: check if the flop and flippedIdx are valid
+                if (!flops[flopKey] || !Array.isArray(flops[flopKey].flipped) || flippedIdx >= flops[flopKey].flipped.length) {
+                    setError("Invalid flop or card index.");
+                    return;
+                }
+                // Prepare payload for backend
+                fetch('/reveal_card', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        flop: flopKey,
+                        index: flippedIdx,
+                        flops: flops
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        setError(data.error);
+                        return;
+                    }
+                    // Update the flops in state
+                    if (data.flops) {
+                        if (data.flops.first_flop) setFirstFlop(data.flops.first_flop);
+                        if (data.flops.second_flop) setSecondFlop(data.flops.second_flop);
+                        setError(null);
+                    }
+                })
+                .catch(() => setError("Failed to reveal card."));
+            }
+
+            // --- Add canRevealFourth helper ---
+            function canRevealFourth(flopKey) {
+                // Both flops must have at least 2 exposed + 1 flipped (i.e., 3 exposed, 1 flipped = 4th card available)
+                // Only allow revealing the 4th card if both flops have not yet revealed their 4th card
+                // For two-flop games, only allow revealing the 4th card if the other flop's 4th card is not already revealed
+                if (!firstFlop || !secondFlop) return true;
+                const thisFlop = flopKey === "first_flop" ? firstFlop : secondFlop;
+                const otherFlop = flopKey === "first_flop" ? secondFlop : firstFlop;
+                // If this flop has 2 exposed and 2 flipped, allow revealing the 4th card
+                if ((thisFlop.exposed?.length === 3) && (thisFlop.flipped?.length === 2)) {
+                    // Only allow if the other flop's flipped is also 2 (i.e., both ready for 4th card)
+                    return (otherFlop.flipped?.length === 2);
+                }
+                // Otherwise, allow by default
+                return true;
+            }
+
+            // --- Add the revealWinner function inside PokerGame ---
+            function revealWinner() {
+                setLoading(true);
+                fetch('/reveal_winner', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        players,
+                        first_flop: firstFlop.exposed.concat(firstFlop.flipped || []),
+                        second_flop: secondFlop && secondFlop.exposed.concat(secondFlop.flipped || []),
+                        prediction_first: predictionFirst,
+                        prediction_second: predictionSecond
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    setWinner(data);
+                    setShowResults(true);
+                    setLoading(false);
+                    setError(null);
+
+                    // Update accuracy stats
+                    let correct = correctPredictions;
+                    let total = totalPredictions;
+                    if (typeof data.prediction_correct_first === "boolean") {
+                        total += 1;
+                        if (data.prediction_correct_first) correct += 1;
+                    }
+                    if (typeof data.prediction_correct_second === "boolean") {
+                        total += 1;
+                        if (data.prediction_correct_second) correct += 1;
+                    }
+                    setCorrectPredictions(correct);
+                    setTotalPredictions(total);
+                    localStorage.setItem('correctPredictions', correct);
+                    localStorage.setItem('totalPredictions', total);
+                })
+                .catch(() => {
+                    setError("Failed to reveal winner.");
+                    setLoading(false);
+                });
+            }
+
+            // --- Helper to reset for next round ---
+            function resetGame() {
+                setGameStarted(false);
+                setSkipOptions(false);
+                setWinner(null);
+                setShowResults(false);
+                setPredictionFirst("");
+                setPredictionSecond("");
+                setPredictionsLocked(false);
+                setHighlightFourth(false);
+                setHighlightPrediction(true);
+                setError(null);
+            }
+
+            // --- Add state for showing results ---
+            const [showResults, setShowResults] = useState(false);
+
+            // --- Add effect to glow prediction dropdowns until selected ---
+            useEffect(() => {
+                setSelectGlowFirst(!predictionFirst);
+            }, [predictionFirst]);
+            useEffect(() => {
+                setSelectGlowSecond(!predictionSecond);
+            }, [predictionSecond]);
+
+            // --- Add effect to lock predictions after both are made ---
+            useEffect(() => {
+                if (predictionFirst && predictionSecond) {
+                    setPredictionsLocked(true);
+                } else {
+                    setPredictionsLocked(false);
+                }
+            }, [predictionFirst, predictionSecond]);
+
+            // --- Add prediction accuracy calculation ---
+            const accuracy = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
+
+            // ...existing code for effects, handlers, and UI...
+
+            // --- FIX: Always return a single parent, and use an array for children. Render game options/leaderboard as siblings to rules ---
+            return React.createElement(
+                'div',
+                null,
+                // --- Banner and Logo at the top ---
+                React.createElement('div', {
+                    className: "w-full flex flex-col items-center justify-center py-8 mb-4"
+                },
+                    // Logo image (if you have a logo file in /static/logo.png)
+                    React.createElement('img', {
+                        src: "/static/logo.png",
+                        alt: "Bombpot Poker Logo",
+                        style: { width: 120, height: 120, marginBottom: 12 },
+                        className: "mx-auto drop-shadow-lg"
+                    }),
+                    // Game title
+                    React.createElement('h1', {
+                        className: "game-title text-4xl md:text-5xl font-extrabold tracking-wider mb-2"
+                    }, "Bombpot Poker"),
+                    // Optional: subtitle/banner
+                    React.createElement('div', {
+                        className: "text-yellow-300 text-lg md:text-xl font-semibold tracking-wide mb-2"
+                    }, "Texas Hold'em Bombpot Trainer")
+                ),
+                // Game Options and Leaderboard (show if not started and not skipping options)
+                (!gameStarted && !skipOptions) && [
+                    React.createElement('div', {
+                        id: "game-options",
+                        key: "game-options"
+                    },
+                        React.createElement('div', {
+                            className: "flex flex-col md:flex-row gap-10 justify-center w-full max-w-4xl mx-auto mb-8"
+                        },
+                            React.createElement('div', { className: "flex flex-col items-center bg-[#232946] bg-opacity-90 rounded-xl p-6 shadow-xl" },
+                                // --- Player Name Input ---
+                                React.createElement('label', { className: "text-white mb-2 text-lg font-semibold" }, "Your Name:"),
+                                React.createElement('input', {
+                                    className: "rounded px-2 py-1 mb-4 text-base font-semibold bg-[#232946] border border-gray-400 text-white w-48",
+                                    type: "text",
+                                    value: playerName,
+                                    maxLength: 32,
+                                    placeholder: "Enter your name",
+                                    onChange: e => setPlayerName(e.target.value.replace(/[^a-zA-Z0-9 _-]/g, "")),
+                                    autoFocus: true
+                                }),
+                                React.createElement('label', { className: "text-white mb-2 text-lg font-semibold" }, "Number of Players:"),
+                                React.createElement('select', {
+                                    className: "rounded px-2 py-1 custom-select mb-4 text-base font-semibold",
+                                    value: numPlayers,
+                                    onChange: e => setNumPlayers(Number(e.target.value)),
+                                    disabled: loading
+                                },
+                                    [2, 3, 4, 5, 6].map(n =>
+                                        React.createElement('option', { key: n, value: n }, n)
+                                    )
+                                ),
+                                React.createElement('label', { className: "text-white mb-2 text-lg font-semibold mt-2" }, "Select Difficulty:"),
+                                React.createElement('select', {
+                                    className: "rounded px-2 py-1 custom-select mb-4 text-base font-semibold",
+                                    value: difficulty,
+                                    onChange: e => setDifficulty(e.target.value),
+                                    disabled: loading
+                                },
+                                    ["easy", "difficult"].map(level =>
+                                        React.createElement('option', { key: level, value: level }, level.charAt(0).toUpperCase() + level.slice(1))
+                                    )
+                                ),
+                                React.createElement('button', {
+                                    className: "poker-chip px-8 py-3 rounded-full text-lg mt-2",
+                                    onClick: () => startGame(false),
+                                    disabled: loading || !playerName.trim()
+                                }, loading ? "Dealing..." : "Start Game")
+                            )
+                        ),
+                        // --- Leaderboard always under game options ---
+                        React.createElement('div', { className: "mt-8 mb-8 flex flex-col items-center" },
+                            React.createElement('h3', { className: "text-xl font-bold text-yellow-700 mb-2 text-center" }, "Leaderboard (20+ flops)"),
+                            leaderboard && (!Array.isArray(leaderboard) || leaderboard.filter(e => e && typeof e.correct === "number" && typeof e.total === "number" && e.total >= 20).length === 0)
+                                ? React.createElement('div', { className: "text-gray-600 text-center" }, "No leaderboard entries yet.")
+                                : React.createElement('table', { className: "min-w-full text-sm bg-[#181e2a] bg-opacity-100 rounded-xl overflow-hidden border border-gray-700" },
+                                    React.createElement('thead', null,
+                                        React.createElement('tr', { className: "bg-[#232946] text-yellow-300" },
+                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Rank"),
+                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Name"),
+                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Accuracy"),
+                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Flops"),
+                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Difficulty")
+                                        )
+                                    ),
+                                    React.createElement('tbody', null,
+                                        leaderboard.map((entry, idx) =>
+                                            React.createElement('tr', {
+                                                key: entry.name + entry.difficulty,
+                                                className:
+                                                    playerName.trim().toLowerCase() === entry.name.trim().toLowerCase() && entry.difficulty === difficulty
+                                                        ? "bg-yellow-300 text-black font-bold"
+                                                        : (idx % 2 === 0 ? "bg-[#232946] text-white" : "bg-[#181e2a] text-white")
+                                            },
+                                                React.createElement('td', { className: "px-4 py-2" }, idx + 1),
+                                                React.createElement('td', { className: "px-4 py-2" }, entry.name),
+                                                React.createElement('td', { className: "px-4 py-2" },
+                                                    `${Math.round((entry.correct / entry.total) * 100)}%`
+                                                ),
+                                                React.createElement('td', { className: "px-4 py-2" }, entry.total),
+                                                React.createElement('td', { className: "px-4 py-2" }, entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : "")
+                                            )
+                                        )
+                                    )
+                                )
+                        )
+                    )
+                ],
+                // Main UI (show only if gameStarted or skipOptions)
+                (gameStarted || skipOptions) && React.createElement('div', { className: "min-h-screen flex flex-col items-center bg-gradient-to-br from-[#232946] via-[#1a2a3a] to-[#0a101a] py-8" },
+                    React.createElement('div', { className: "flex flex-col items-center w-full max-w-5xl" },
+                        // --- Felt background for flops ---
+                        React.createElement('div', { className: "felt-bg p-4 md:p-8 mb-10 w-full rounded-xl" },
+                            React.createElement('div', { className: "flex flex-col md:flex-row gap-10 justify-center" },
+                                (firstFlop.exposed.length + (firstFlop.flipped?.length || 0) > 0)
+                                    ? React.createElement(Flop, {
+                                        flop: firstFlop,
+                                        flopKey: "first_flop",
+                                        onFlip: flipCard,
+                                        prediction: predictionFirst,
+                                        setPrediction: setPredictionFirst,
+                                        numPlayers,
+                                        lastFlippedIndex: lastFlippedFirst,
+                                        flops: { first_flop: firstFlop, second_flop: secondFlop },
+                                        highlightFourth: highlightFourth,
+                                        selectGlow: selectGlowFirst,
+                                        predictionOptions: Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`),
+                                        canRevealFourth: canRevealFourth("first_flop"),
+                                        predictionsLocked
+                                    })
+                                    : gameStarted && React.createElement('div', { className: "text-white opacity-60 bg-[#232946] bg-opacity-80 rounded-xl p-6 shadow-lg min-w-[220px] text-center" }, "First flop will appear here"),
+                                (secondFlop && (secondFlop.exposed.length + (secondFlop.flipped?.length || 0) > 0))
+                                    ? React.createElement(Flop, {
+                                        flop: secondFlop,
+                                        flopKey: "second_flop",
+                                        onFlip: flipCard,
+                                        prediction: predictionSecond,
+                                        setPrediction: setPredictionSecond,
+                                        numPlayers,
+                                        lastFlippedIndex: lastFlippedSecond,
+                                        flops: { first_flop: firstFlop, second_flop: secondFlop },
+                                        highlightFourth: highlightFourth,
+                                        selectGlow: selectGlowSecond,
+                                        predictionOptions: Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`),
+                                        canRevealFourth: canRevealFourth("second_flop"),
+                                        predictionsLocked
+                                    })
+                                    : gameStarted && React.createElement('div', { className: "text-white opacity-60 bg-[#232946] bg-opacity-80 rounded-xl p-6 shadow-lg min-w-[220px] text-center" }, "Second flop will appear here")
+                            )
+                        ),
+                        // --- Felt background for player hands ---
+                        React.createElement('div', { className: "felt-bg p-4 md:p-8 mb-10 w-full rounded-xl" },
+                            gameStarted && React.createElement('div', {
+                                className: "flex flex-wrap justify-center gap-6 w-full"
+                            },
+                                players.length === 0
+                                    ? React.createElement('div', { className: "text-white opacity-60" }, "No players yet. Start a game!")
+                                    : players.map((player, idx) =>
+                                        React.createElement(PlayerHand, { key: idx, player: player, idx: idx })
+                                    )
+                            )
+                        )
+                    ),
+                    gameStarted &&
+                    predictionFirst && predictionSecond &&
+                    !winner &&
+                    React.createElement('button', {
+                        className: "poker-chip px-8 py-3 rounded-full text-lg mb-6",
+                        onClick: () => revealWinner(),
+                        style: { minWidth: 180 }
+                    }, "Skip to Results"),
+                    // --- Show prediction accuracy ---
+                    React.createElement('div', { className: "text-yellow-300 font-bold mb-2 text-lg" },
+                        "Prediction Accuracy: ",
+                        React.createElement('span', { className: "text-white" }, `${accuracy}%`),
+                        React.createElement('span', { className: "text-gray-400 text-sm ml-2" }, `(${correctPredictions}/${totalPredictions})`)
+                    ),
+                    error && React.createElement('div', { className: "bg-red-200 text-red-800 rounded px-4 py-2 mb-4" },
+                        typeof error === "string"
+                            ? error
+                            : "Could not reveal winner. Please try again."
+                    ),
+                    showResults && winner && React.createElement('div', { className: "bg-white bg-opacity-95 rounded-2xl p-8 shadow-2xl text-black mt-4 max-w-xl w-full border-4 border-yellow-400" },
+                        React.createElement('h2', { className: "text-2xl font-bold mb-4 text-yellow-600" }, "Results"),
+                        React.createElement('div', { className: "mb-4" },
+                            React.createElement('div', { className: "font-semibold mb-1" }, "First Flop Winner:"),
+                            React.createElement('div', null, winner.winner_first, " (", winner.hand_type_first, ")"),
+                            winner.prediction_correct_first !== undefined &&
+                                React.createElement('div', {
+                                    className: winner.prediction_correct_first ? "text-green-600 font-bold" : "text-red-600 font-bold"
+                                }, winner.prediction_correct_first ? "Your prediction was correct!" : "Your prediction was incorrect.")
+                        ),
+                        winner.winner_second &&
+                        React.createElement('div', { className: "mb-4" },
+                            React.createElement('div', { className: "font-semibold mb-1" }, "Second Flop Winner:"),
+                            React.createElement('div', null, winner.winner_second, " (", winner.hand_type_second, ")"),
+                            winner.prediction_correct_second !== undefined &&
+                                React.createElement('div', {
+                                    className: winner.prediction_correct_second ? "text-green-600 font-bold" : "text-red-600 font-bold"
+                                }, winner.prediction_correct_second ? "Your prediction was correct!" : "Your prediction was incorrect.")
+                        ),
+                        React.createElement('button', {
+                            className: "poker-chip px-8 py-3 rounded-full text-lg mt-4",
+                            onClick: resetGame
+                        }, "Play Again")
+                    )
+                ),
+                // --- Game Rules at the very bottom, always rendered ---
+                React.createElement('div', {
+                    className: "rules-mobile bg-[#232946] bg-opacity-95 rounded-xl shadow-xl border-2 border-yellow-400 px-6 py-4 max-w-xs mx-auto mb-8 mt-8"
+                },
+                    React.createElement('h2', { className: "text-lg font-bold text-yellow-300 mb-2" }, "Game Rules:"),
+                    React.createElement('ol', { className: "list-decimal list-inside text-white text-sm space-y-1" },
+                        React.createElement('li', null, "Standard Texas Holdum Rules in play."),
+                        React.createElement('li', null, "Two cards of players hand MUST play."),
+                        React.createElement('li', null, "The same two cards can be used for both hands."),
+                        React.createElement('li', null, "The game will reset automatically after 20 flops are reached and your accuracy will be submitted to the leaderboard.")
+                    )
+                )
+            );
         }
 
         // Attach scrollToGameOptions to window so it can be called from outside React
@@ -584,12 +1012,12 @@
             }
             if (!window.React || !window.ReactDOM) {
                 console.error("React or ReactDOM not loaded!");
-                rootEl.innerHTML = "<div style='color:red'>React failed to load. Check your CDN links.</div>";
+                rootEl.innerHTML = "<div style='color:red'>React failed to load. Check your CDN links.";
                 return;
             }
             if (typeof PokerGame !== "function") {
                 console.error("PokerGame is not defined or not a function. typeof PokerGame:", typeof PokerGame);
-                rootEl.innerHTML = "<div style='color:red'>PokerGame is not defined. Check your script order.</div>";
+                rootEl.innerHTML = "<div style='color:red'>PokerGame is not defined. Check your script order.";
                 return;
             }
             try {
