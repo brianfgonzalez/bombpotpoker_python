@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 import random
 from itertools import combinations
+import os
+import json
 
 app = Flask(__name__)
 
@@ -77,8 +79,8 @@ def evaluate_hand(cards):
     # One Pair
     if 2 in rank_counts.values():
         pair_rank = max([rank for rank, count in rank_counts.items() if count == 2], key=lambda r: rank_order.index(r))
-        kickers = sorted([rank for rank, count in rank_counts.items() if count == 1], key=rank_order.index, reverse=True)
-        # Sort cards: pair cards first (highest pair), then kickers in order
+        # Only use the highest available kickers (not all singletons, just the top 3)
+        kickers = sorted([rank for rank, count in rank_counts.items() if count == 1], key=rank_order.index, reverse=True)[:3]
         sorted_cards = (
             [card for card in cards if card['rank'] == pair_rank] +
             sorted([card for card in cards if card['rank'] != pair_rank], key=card_sort_key, reverse=True)
@@ -89,19 +91,52 @@ def evaluate_hand(cards):
     return (0, hand_types[0], sorted(cards, key=card_sort_key, reverse=True))  # High Card
 
 def compare_hands(hand1, hand2):
-    # hand1 and hand2 are tuples: (rank, tiebreakers)
+    # hand1 and hand2 are tuples: (rank, tiebreakers, sorted_cards)
+    rank_order = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+    def safe_index(val):
+        if val in rank_order:
+            return rank_order.index(val)
+        return -1
+
     if hand1[0] > hand2[0]:
         return 1
     elif hand1[0] < hand2[0]:
         return -1
-    # If both are two pair, use special comparison
-    if hand1[0] == 2:  # TWO_PAIR
-        return compare_two_pair(hand1, hand2)
-    # Fallback: compare tiebreakers in order
+    # If both are two pair, compare pairs and kicker by rank_order
+    if hand1[0] == 2:  # Two Pair
+        # Compare each value in tiebreakers (pair1, pair2, kicker)
+        for a, b in zip(hand1[1], hand2[1]):
+            if safe_index(a) > safe_index(b):
+                return 1
+            elif safe_index(a) < safe_index(b):
+                return -1
+        # If all tiebreakers are equal, compare sorted_cards by suit for deterministic result
+        for card1, card2 in zip(hand1[2], hand2[2]):
+            if safe_index(card1['rank']) > safe_index(card2['rank']):
+                return 1
+            elif safe_index(card1['rank']) < safe_index(card2['rank']):
+                return -1
+            # If ranks are equal, compare suit unicode (for deterministic but arbitrary order)
+            if card1['suit'] > card2['suit']:
+                return 1
+            elif card1['suit'] < card2['suit']:
+                return -1
+        return 0
+    # For One Pair, High Card, etc, compare tiebreakers by rank_order
     for a, b in zip(hand1[1], hand2[1]):
-        if a > b:
+        if safe_index(a) > safe_index(b):
             return 1
-        elif a < b:
+        elif safe_index(a) < safe_index(b):
+            return -1
+    # If still tied, compare sorted_cards by rank then suit
+    for card1, card2 in zip(hand1[2], hand2[2]):
+        if safe_index(card1['rank']) > safe_index(card2['rank']):
+            return 1
+        elif safe_index(card1['rank']) < safe_index(card2['rank']):
+            return -1
+        if card1['suit'] > card2['suit']:
+            return 1
+        elif card1['suit'] < card2['suit']:
             return -1
     return 0
 
@@ -120,29 +155,22 @@ def determine_winner(hand1, hand2, flop):
     ]
 
     # Evaluate all combinations and find the best hand
-    player1_best = max(player1_combinations, key=lambda hand: evaluate_hand(hand)[0])
-    player2_best = max(player2_combinations, key=lambda hand: evaluate_hand(hand)[0])
+    player1_best = max(player1_combinations, key=lambda hand: evaluate_hand(hand)[0:2])
+    player2_best = max(player2_combinations, key=lambda hand: evaluate_hand(hand)[0:2])
 
-    player1_score, player1_type, player1_hand = evaluate_hand(player1_best)
-    player2_score, player2_type, player2_hand = evaluate_hand(player2_best)
+    player1_eval = evaluate_hand(player1_best)
+    player2_eval = evaluate_hand(player2_best)
 
-    # Debugging: Print the evaluated hands
-    print("Player 1 Evaluated Hand:", player1_hand, "Type:", player1_type, "Score:", player1_score)
-    print("Player 2 Evaluated Hand:", player2_hand, "Type:", player2_type, "Score:", player2_score)
+    print("Player 1 Evaluated Hand:", player1_eval[2], "Type:", player1_eval[1], "Score:", player1_eval[0])
+    print("Player 2 Evaluated Hand:", player2_eval[2], "Type:", player2_eval[1], "Score:", player2_eval[0])
 
-    if player1_score > player2_score:
-        return "Player 1", player1_type, player1_hand
-    elif player2_score > player1_score:
-        return "Player 2", player2_type, player2_hand
+    cmp = compare_hands(player1_eval, player2_eval)
+    if cmp > 0:
+        return "Player 1", player1_eval[1], player1_eval[2]
+    elif cmp < 0:
+        return "Player 2", player2_eval[1], player2_eval[2]
     else:
-        # In case of a tie, compare the high cards
-        for card1, card2 in zip(player1_hand, player2_hand):
-            if card1['rank'] != card2['rank']:
-                if rank_order.index(card1['rank']) > rank_order.index(card2['rank']):
-                    return "Player 1", player1_type, player1_hand
-                else:
-                    return "Player 2", player2_type, player2_hand
-        return "Tie", player1_type, player1_hand
+        return "Tie", player1_eval[1], player1_eval[2]
 
 def determine_winner_multiple(players, flop):
     print("Debug: Players data:", players)
@@ -185,6 +213,69 @@ def determine_winner_multiple(players, flop):
 
     return best_player, best_hand_type, best_hand
 
+LEADERBOARD_FILE = os.path.join(os.path.dirname(__file__), "leaderboard.json")
+
+def load_leaderboard():
+    # Always try to load from disk, never cache in memory
+    if not os.path.exists(LEADERBOARD_FILE):
+        # If file does not exist, create an empty file
+        with open(LEADERBOARD_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f)
+        return []
+    try:
+        with open(LEADERBOARD_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        # If file is corrupted, reset to empty list
+        with open(LEADERBOARD_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f)
+        return []
+
+def save_leaderboard(leaderboard):
+    try:
+        with open(LEADERBOARD_FILE, "w", encoding="utf-8") as f:
+            json.dump(leaderboard, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("Error saving leaderboard:", e)
+
+@app.route('/leaderboard', methods=['GET'])
+def get_leaderboard():
+    leaderboard = load_leaderboard()
+    # Only show entries with at least 20 flops
+    leaderboard = [entry for entry in leaderboard if entry.get("total", 0) >= 20]
+    # Sort by accuracy (correct/total), then by total (descending)
+    leaderboard = sorted(
+        leaderboard,
+        key=lambda x: ((x.get("correct", 0) / x.get("total", 1)) if x.get("total", 0) > 0 else 0, x.get("total", 0)),
+        reverse=True
+    )
+    # Only show top 10
+    leaderboard = leaderboard[:10]
+    return jsonify({"leaderboard": leaderboard})
+
+@app.route('/update_leaderboard', methods=['POST'])
+def update_leaderboard():
+    data = request.get_json()
+    name = data.get("name", "").strip()
+    correct = int(data.get("correct", 0))
+    total = int(data.get("total", 0))
+    difficulty = data.get("difficulty", "easy")
+
+    if not name or total < 20:
+        return jsonify({"error": "Invalid name or not enough flops"}), 400
+
+    leaderboard = load_leaderboard()
+    # Always allow multiple entries for the same name (append new entry)
+    leaderboard.append({
+        "name": name,
+        "correct": correct,
+        "total": total,
+        "difficulty": difficulty
+    })
+    save_leaderboard(leaderboard)
+    return jsonify({"success": True})
+
+@app.route('/game-options')
 @app.route('/')
 def index():
     return render_template('index.html')
