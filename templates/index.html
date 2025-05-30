@@ -415,7 +415,7 @@
             );
         }
 
-        function Flop({ flop, flopKey, onFlip, prediction, setPrediction, numPlayers, lastFlippedIndex, flops, highlightFourth, selectGlow, predictionOptions, canRevealFourth, predictionsLocked }) {
+        function Flop({ flop, flopKey, onFlip, prediction, setPrediction, numPlayers, lastFlippedIndex, flops, highlightFourth, selectGlow, predictionOptions, canRevealFourth, predictionsLocked, predictionFirst, predictionSecond }) {
             // Show exposed and flipped cards in correct order, with flip animation for the last revealed
             const totalCards = (flop.exposed || []).length + (flop.flipped || []).length;
             const cards = [];
@@ -438,32 +438,32 @@
                     );
                 } else {
                     const flippedIdx = i - (flop.exposed || []).length;
-                    let canReveal = true;
+                    let canReveal = false;
                     let extraClass = "";
-                    // For the 4th card, only show "reveal" if canRevealFourth is true
-                    if (thisFlopFlipped === 2 && flippedIdx === 0 && !canRevealFourth) {
-                        canReveal = false;
+
+                    // Only allow reveal if both predictions are made
+                    if (predictionFirst && predictionSecond) {
+                        // 4th card logic: thisFlopFlipped === 2 && flippedIdx === 0
+                        if (thisFlopFlipped === 2 && flippedIdx === 0) {
+                            canReveal = true;
+                        }
+                        // 5th card logic: thisFlopFlipped === 1 && flippedIdx === 0
+                        else if (thisFlopFlipped === 1 && flippedIdx === 0) {
+                            // Allow reveal if the other flop's 5th card is still unrevealed (flipped.length === 1)
+                            // or if this is the only remaining 5th card
+                            const otherFlopKey = flopKey === "first_flop" ? "second_flop" : "first_flop";
+                            const otherFlopFlippedCount = flops[otherFlopKey]?.flipped?.length || 0;
+                            if (otherFlopFlippedCount === 1 || otherFlopFlippedCount === 0) {
+                                canReveal = true;
+                            }
+                        }
                     }
-                    // For the 5th card, only show "reveal" if both 4th cards are revealed
-                    if (
-                        isTwoFlop &&
-                        thisFlopFlipped === 2 &&
-                        flippedIdx === 1
-                    ) {
-                        canReveal = false;
-                    }
-                    if (
-                        isTwoFlop &&
-                        thisFlopFlipped === 1 &&
-                        flippedIdx === 0 &&
-                        (otherFlopFlipped > 1)
-                    ) {
-                        canReveal = false;
-                    }
+
                     // Highlight the 4th card if requested and allowed
-                    if (highlightFourth && thisFlopFlipped === 2 && flippedIdx === 0 && canRevealFourth) {
+                    if (highlightFourth && thisFlopFlipped === 2 && flippedIdx === 0) {
                         extraClass = "reveal-glow";
                     }
+
                     cards.push(
                         React.createElement('button', {
                             key: `flipped-${flippedIdx}`,
@@ -588,7 +588,6 @@
 
             // --- Add the startGame function inside PokerGame ---
             function startGame(skipLeaderboard = false) {
-                // Example: POST to /start_game and update state
                 setLoading(true);
                 fetch('/start_game', {
                     method: 'POST',
@@ -598,8 +597,19 @@
                         num_flops: 2
                     })
                 })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error("Failed to start game.");
+                    }
+                    return res.json();
+                })
                 .then(data => {
+                    // Defensive: check for valid data
+                    if (!data.players || !data.first_flop) {
+                        setError("Invalid response from server.");
+                        setLoading(false);
+                        return;
+                    }
                     setPlayers(data.players || []);
                     setFirstFlop(data.first_flop || { exposed: [], flipped: [] });
                     setSecondFlop(data.second_flop || { exposed: [], flipped: [] });
@@ -635,14 +645,20 @@
                     setError("Invalid flop or card index.");
                     return;
                 }
-                // Prepare payload for backend
+                // Only allow reveal if both predictions are made
+                if (!predictionFirst || !predictionSecond) {
+                    setError("Both player predictions must be made before revealing cards.");
+                    return;
+                }
                 fetch('/reveal_card', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         flop: flopKey,
                         index: flippedIdx,
-                        flops: flops
+                        flops: flops,
+                        prediction_first: predictionFirst,
+                        prediction_second: predictionSecond
                     })
                 })
                 .then(res => res.json())
@@ -651,7 +667,6 @@
                         setError(data.error);
                         return;
                     }
-                    // Update the flops in state
                     if (data.flops) {
                         if (data.flops.first_flop) setFirstFlop(data.flops.first_flop);
                         if (data.flops.second_flop) setSecondFlop(data.flops.second_flop);
@@ -758,28 +773,23 @@
             // --- Add prediction accuracy calculation ---
             const accuracy = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
 
-            // ...existing code for effects, handlers, and UI...
-
             // --- FIX: Always return a single parent, and use an array for children. Render game options/leaderboard as siblings to rules ---
             return React.createElement(
                 'div',
                 null,
-                // --- Banner and Logo at the top ---
-                React.createElement('div', {
+                // --- Only show banner/logo when NOT in game ---
+                (!gameStarted && !skipOptions) && React.createElement('div', {
                     className: "w-full flex flex-col items-center justify-center py-8 mb-4"
                 },
-                    // Logo image (if you have a logo file in /static/logo.png)
                     React.createElement('img', {
                         src: "/static/logo.png",
                         alt: "Bombpot Poker Logo",
                         style: { width: 120, height: 120, marginBottom: 12 },
                         className: "mx-auto drop-shadow-lg"
                     }),
-                    // Game title
                     React.createElement('h1', {
                         className: "game-title text-4xl md:text-5xl font-extrabold tracking-wider mb-2"
                     }, "Bombpot Poker"),
-                    // Optional: subtitle/banner
                     React.createElement('div', {
                         className: "text-yellow-300 text-lg md:text-xl font-semibold tracking-wide mb-2"
                     }, "Texas Hold'em Bombpot Trainer")
@@ -872,7 +882,7 @@
                         )
                     )
                 ],
-                // Main UI (show only if gameStarted or skipOptions)
+                // --- Main UI (show only if gameStarted or skipOptions) ---
                 (gameStarted || skipOptions) && React.createElement('div', { className: "min-h-screen flex flex-col items-center bg-gradient-to-br from-[#232946] via-[#1a2a3a] to-[#0a101a] py-8" },
                     React.createElement('div', { className: "flex flex-col items-center w-full max-w-5xl" },
                         // --- Felt background for flops ---
@@ -892,7 +902,10 @@
                                         selectGlow: selectGlowFirst,
                                         predictionOptions: Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`),
                                         canRevealFourth: canRevealFourth("first_flop"),
-                                        predictionsLocked
+                                        predictionsLocked,
+                                        // --- Pass both predictions for reveal logic ---
+                                        predictionFirst,
+                                        predictionSecond
                                     })
                                     : gameStarted && React.createElement('div', { className: "text-white opacity-60 bg-[#232946] bg-opacity-80 rounded-xl p-6 shadow-lg min-w-[220px] text-center" }, "First flop will appear here"),
                                 (secondFlop && (secondFlop.exposed.length + (secondFlop.flipped?.length || 0) > 0))
@@ -909,7 +922,10 @@
                                         selectGlow: selectGlowSecond,
                                         predictionOptions: Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`),
                                         canRevealFourth: canRevealFourth("second_flop"),
-                                        predictionsLocked
+                                        predictionsLocked,
+                                        // --- Pass both predictions for reveal logic ---
+                                        predictionFirst,
+                                        predictionSecond
                                     })
                                     : gameStarted && React.createElement('div', { className: "text-white opacity-60 bg-[#232946] bg-opacity-80 rounded-xl p-6 shadow-lg min-w-[220px] text-center" }, "Second flop will appear here")
                             )

@@ -322,6 +322,13 @@ def reveal_card():
         flop = data.get('flop')
         index = data.get('index')
         flops = data.get('flops')
+        # --- NEW: Require predictions to be present and non-empty before allowing reveal ---
+        prediction_first = data.get('prediction_first')
+        prediction_second = data.get('prediction_second')
+
+        # Only allow reveal if both predictions are made (non-empty)
+        if not prediction_first or not prediction_second:
+            return jsonify({'error': 'Both player predictions must be made before revealing cards.'}), 403
 
         if not flop or not isinstance(index, int) or not flops:
             app.logger.error(f"Invalid payload structure: {data}")  # Debugging
