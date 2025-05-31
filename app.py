@@ -42,53 +42,84 @@ def evaluate_hand(cards):
     rank_counts = {rank: ranks.count(rank) for rank in ranks}
     unique_suits = set(suits)
 
-    hand_types = {
-        0: "High Card",
-        1: "One Pair",
-        2: "Two Pair",
-        3: "Three of a Kind",
-        6: "Flush",
-        7: "Four of a Kind"
-    }
+    # Proper poker hand rankings (from lowest to highest):
+    # 0: High Card
+    # 1: One Pair
+    # 2: Two Pair
+    # 3: Three of a Kind
+    # 4: Straight
+    # 5: Flush
+    # 6: Full House
+    # 7: Four of a Kind
+    # 8: Straight Flush
+    # 9: Royal Flush
 
     def card_sort_key(card):
         return rank_order.index(card['rank'])
 
+    # Check for straight
+    rank_indices = sorted([rank_order.index(rank) for rank in ranks])
+    is_straight = False
+    straight_high = None
+    
+    # Check for regular straight
+    if len(set(rank_indices)) == 5 and rank_indices[-1] - rank_indices[0] == 4:
+        is_straight = True
+        straight_high = rank_order[rank_indices[-1]]
+    
+    # Check for A-2-3-4-5 straight (ace low)
+    elif set(rank_indices) == {0, 1, 2, 3, 12}:  # A, 2, 3, 4, 5
+        is_straight = True
+        straight_high = '5'  # In ace-low straight, 5 is the high card
+
     # Check for flush
-    if len(unique_suits) == 1:
-        return (6, hand_types[6], sorted(cards, key=card_sort_key, reverse=True))  # Flush
+    is_flush = len(unique_suits) == 1
+
+    # Check for straight flush / royal flush
+    if is_straight and is_flush:
+        if straight_high == 'A' and set(ranks) == {'10', 'J', 'Q', 'K', 'A'}:
+            return (9, "Royal Flush", sorted(cards, key=card_sort_key, reverse=True))
+        else:
+            return (8, f"Straight Flush, {straight_high} high", sorted(cards, key=card_sort_key, reverse=True))
 
     # Four of a Kind
     if 4 in rank_counts.values():
-        return (7, hand_types[7], sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))  # Four of a Kind
+        return (7, "Four of a Kind", sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))
 
     # Full House
     if 3 in rank_counts.values() and 2 in rank_counts.values():
-        return (6, "Full House", sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))  # Full House
+        return (6, "Full House", sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))
+
+    # Flush
+    if is_flush:
+        return (5, "Flush", sorted(cards, key=card_sort_key, reverse=True))
+
+    # Straight
+    if is_straight:
+        return (4, f"Straight, {straight_high}", sorted(cards, key=card_sort_key, reverse=True))
 
     # Three of a Kind
     if 3 in rank_counts.values():
-        return (3, hand_types[3], sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))  # Three of a Kind
+        return (3, "Three of a Kind", sorted(cards, key=lambda card: (rank_counts[card['rank']], card_sort_key(card)), reverse=True))
 
     # Two Pair
     if list(rank_counts.values()).count(2) == 2:
         pairs = sorted([rank for rank, count in rank_counts.items() if count == 2], key=rank_order.index, reverse=True)
         kicker = sorted([rank for rank, count in rank_counts.items() if count == 1], key=rank_order.index, reverse=True)[0]
-        return (2, [pairs[0], pairs[1], kicker], sorted(cards, key=card_sort_key, reverse=True))  # Two Pair
+        return (2, [pairs[0], pairs[1], kicker], sorted(cards, key=card_sort_key, reverse=True))
 
     # One Pair
     if 2 in rank_counts.values():
         pair_rank = max([rank for rank, count in rank_counts.items() if count == 2], key=lambda r: rank_order.index(r))
-        # Only use the highest available kickers (not all singletons, just the top 3)
         kickers = sorted([rank for rank, count in rank_counts.items() if count == 1], key=rank_order.index, reverse=True)[:3]
         sorted_cards = (
             [card for card in cards if card['rank'] == pair_rank] +
             sorted([card for card in cards if card['rank'] != pair_rank], key=card_sort_key, reverse=True)
         )
-        return (1, [pair_rank] + kickers, sorted_cards)  # One Pair
+        return (1, [pair_rank] + kickers, sorted_cards)
 
     # High Card
-    return (0, hand_types[0], sorted(cards, key=card_sort_key, reverse=True))  # High Card
+    return (0, "High Card", sorted(cards, key=card_sort_key, reverse=True))
 
 def compare_hands(hand1, hand2):
     # hand1 and hand2 are tuples: (rank, tiebreakers, sorted_cards)

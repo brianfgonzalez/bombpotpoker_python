@@ -82,11 +82,13 @@
         .poker-card.flip-animate {
             transform: rotateY(180deg);
         }
-        .poker-card:hover {
+        /* Remove hover effect for all .poker-card by default */
+        /* .poker-card:hover {
             transform: scale(1.08) rotate(-2deg);
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
             z-index: 2;
-        }
+        } */
+        /* Only apply hover effect for non-player cards if needed (handled in React) */
         .poker-card.red {
             color: #e3342f;
             border-color: #e3342f;
@@ -94,6 +96,14 @@
         .poker-card.black {
             color: #232946;
             border-color: #232946;
+        }
+        .poker-card.blue {
+            color: #2563eb;
+            border-color: #2563eb;
+        }
+        .poker-card.green {
+            color: #22c55e;
+            border-color: #22c55e;
         }
         .poker-card.flipped {
             background: repeating-linear-gradient(
@@ -376,9 +386,12 @@
         // Ensure React and ReactDOM are available
         const { useState, useEffect, useRef } = window.React;
 
-        function Card({ rank, suit, flipped, animate }) {
-            const isRed = suit === "♥" || suit === "♦";
-            const isBlack = suit === "♠" || suit === "♣";
+        function Card({ rank, suit, flipped, animate, disableHover }) {
+            // Color logic: hearts=red, spades=black, diamonds=blue, clubs=green
+            const isRed = suit === "♥";
+            const isBlack = suit === "♠";
+            const isBlue = suit === "♦";
+            const isGreen = suit === "♣";
             const cardRef = useRef(null);
 
             useEffect(() => {
@@ -391,10 +404,20 @@
                 }
             }, [animate]);
 
+            // Compose className for color and hover
+            let colorClass = "";
+            if (isRed) colorClass = "red";
+            else if (isBlack) colorClass = "black";
+            else if (isBlue) colorClass = "blue";
+            else if (isGreen) colorClass = "green";
+
+            // Only add hover effect if disableHover is false
+            const hoverClass = disableHover ? "" : "poker-card-hover";
+
             return (
                 React.createElement('div', {
                     ref: cardRef,
-                    className: `w-14 h-24 rounded-xl flex flex-col justify-between items-end px-2 py-1 poker-card ${isRed ? "red" : ""} ${isBlack ? "black" : ""} ${flipped ? "flipped" : ""} relative`
+                    className: `w-14 h-24 rounded-xl flex flex-col justify-between items-end px-2 py-1 poker-card ${colorClass} ${flipped ? "flipped" : ""} relative ${hoverClass}`
                 },
                     !flipped && [
                         React.createElement('span', { className: "text-lg font-bold", key: "rank" }, rank),
@@ -404,12 +427,65 @@
             );
         }
 
-        function PlayerHand({ player, idx }) {
-            return React.createElement('div', { className: "flex flex-col items-center mx-2 my-2" },
-                React.createElement('span', { className: "mb-2 text-base font-semibold text-yellow-300 drop-shadow" }, `Player ${idx + 1}`),
+        function PlayerHand({ player, idx, winningPlayers }) {
+            // Sort cards by suit first, then by rank from lowest to highest
+            const suitOrder = ['♣', '♦', '♥', '♠']; // Clubs, Diamonds, Hearts, Spades
+            const rankOrder = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            
+            const sortedCards = [...player.cards].sort((a, b) => {
+                // First sort by suit
+                const suitDiff = suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit);
+                if (suitDiff !== 0) return suitDiff;
+                // Then sort by rank (lowest to highest)
+                return rankOrder.indexOf(a.rank) - rankOrder.indexOf(b.rank);
+            });
+            
+            // Check if this player is winning any flop
+            const playerName = `Player ${idx + 1}`;
+            const isWinningFirst = winningPlayers?.first === playerName;
+            const isWinningSecond = winningPlayers?.second === playerName;
+            
+            // Create separate container classes for each flop
+            let containerClass = "flex flex-col items-center mx-2 my-2 p-3 rounded-lg transition-all duration-300 relative";
+            
+            // Add visual indicators for each flop separately
+            const indicators = [];
+            if (isWinningFirst) {
+                indicators.push(React.createElement('div', { 
+                    key: 'first-indicator',
+                    className: "absolute -top-2 -left-2 bg-yellow-400 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-xs shadow-lg z-10"
+                }, "1st"));
+            }
+            if (isWinningSecond) {
+                indicators.push(React.createElement('div', { 
+                    key: 'second-indicator',
+                    className: "absolute -top-2 -right-2 bg-blue-400 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-xs shadow-lg z-10"
+                }, "2nd"));
+            }
+            
+            // Apply different styling based on which flop(s) they're winning
+            if (isWinningFirst && isWinningSecond) {
+                containerClass += " ring-4 ring-purple-400 bg-gradient-to-br from-yellow-400 to-blue-400 bg-opacity-20";
+            } else if (isWinningFirst) {
+                containerClass += " ring-4 ring-yellow-400 bg-yellow-400 bg-opacity-10";
+            } else if (isWinningSecond) {
+                containerClass += " ring-4 ring-blue-400 bg-blue-400 bg-opacity-10";
+            }
+            
+            return React.createElement('div', { className: containerClass },
+                ...indicators,
+                React.createElement('span', { 
+                    className: `mb-2 text-base font-semibold drop-shadow ${isWinningFirst || isWinningSecond ? 'text-white' : 'text-yellow-300'}` 
+                }, 
+                    playerName,
+                    isWinningFirst && isWinningSecond && React.createElement('span', { className: "ml-2 text-xs" }, "🏆 Both"),
+                    isWinningFirst && !isWinningSecond && React.createElement('span', { className: "ml-2 text-xs text-yellow-400" }, "🏆"),
+                    !isWinningFirst && isWinningSecond && React.createElement('span', { className: "ml-2 text-xs text-blue-400" }, "🏆")
+                ),
                 React.createElement('div', { className: "overlap-cards" },
-                    player.cards.map((card, i) =>
-                        React.createElement(Card, { key: i, rank: card.rank, suit: card.suit })
+                    sortedCards.map((card, i) =>
+                        // Pass disableHover=true for player cards
+                        React.createElement(Card, { key: i, rank: card.rank, suit: card.suit, disableHover: true })
                     )
                 )
             );
@@ -536,15 +612,46 @@
         }
 
         function describeHandType(handType, tiebreakers) {
-            // handType: string or array (for two pair, one pair, etc)
-            // tiebreakers: array of ranks, e.g. ['8', '2', '6'] or ['7', '10', '8', '6']
+            // Helper to add 's' to rank for pluralization
+            function pluralRank(rank) {
+                if (rank === "6") return "6s";
+                if (rank === "7") return "7s";
+                if (rank === "8") return "8s";
+                if (rank === "9") return "9s";
+                if (rank === "10") return "Tens";
+                if (rank === "J") return "Js";
+                if (rank === "Q") return "Qs";
+                if (rank === "K") return "Ks";
+                if (rank === "A") return "As";
+                return rank + "s";
+            }
+
+            // Helper to convert rank to readable format
+            function rankToWord(rank) {
+                if (rank === "10") return "Ten";
+                if (rank === "J") return "Jack";
+                if (rank === "Q") return "Queen";
+                if (rank === "K") return "King";
+                if (rank === "A") return "Ace";
+                return rank;
+            }
+
             if (Array.isArray(handType) && handType.length === 3) {
                 // Two Pair: [highPair, lowPair, kicker]
-                return `Two Pairs of ${handType[0]}s and ${handType[1]}s with a ${handType[2]} kicker`;
+                return `Two Pairs ${pluralRank(handType[0])} and ${pluralRank(handType[1])}`;
             }
             if (Array.isArray(handType) && handType.length > 1) {
                 // One Pair: [pair, kicker1, kicker2, ...]
-                return `Pair of ${handType[0]}s`;
+                return `Pair of ${pluralRank(handType[0])}`;
+            }
+            // Check if it's a straight with high card info
+            if (typeof handType === "string" && handType.startsWith("Straight")) {
+                // Extract high card if provided (e.g., "Straight K" or "Straight, K high")
+                const match = handType.match(/Straight[,\s]+([2-9JQKA]|10)/i);
+                if (match && match[1]) {
+                    return `${rankToWord(match[1])}-high Straight`;
+                }
+                return "Straight";
             }
             if (typeof handType === "string") {
                 return handType;
@@ -576,18 +683,143 @@
             const [highlightFourth, setHighlightFourth] = useState(false);
             const [predictionsLocked, setPredictionsLocked] = useState(false);
             const [playerName, setPlayerName] = useState(() => localStorage.getItem('playerName') || "");
+            const [nameHistory, setNameHistory] = useState(() => {
+                const saved = localStorage.getItem('nameHistory');
+                return saved ? JSON.parse(saved) : [];
+            });
             const [leaderboard, setLeaderboard] = useState([]);
             const [leaderboardJustUpdated, setLeaderboardJustUpdated] = useState(false);
             const bottomRef = useRef(null);
             const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
             const [selectGlowFirst, setSelectGlowFirst] = useState(false);
             const [selectGlowSecond, setSelectGlowSecond] = useState(false);
+            const [currentWinners, setCurrentWinners] = useState({ first: null, second: null });
+            const [showResults, setShowResults] = useState(false);
 
             // --- FIX: Define isGameOptionsPage before using it ---
             const isGameOptionsPage = window.location.pathname === "/" || window.location.pathname === "/game-options";
 
+            // Save player name to history when starting a game
+            function saveNameToHistory(name) {
+                if (!name.trim()) return;
+                
+                let history = [...nameHistory];
+                // Remove if already exists
+                history = history.filter(n => n.toLowerCase() !== name.toLowerCase());
+                // Add to beginning
+                history.unshift(name);
+                // Keep only last 10
+                history = history.slice(0, 10);
+                
+                setNameHistory(history);
+                localStorage.setItem('nameHistory', JSON.stringify(history));
+                localStorage.setItem('playerName', name);
+            }
+
+            // Add function to check current winners
+            function updateCurrentWinners() {
+                if (!gameStarted || players.length === 0) {
+                    setCurrentWinners({ first: null, second: null });
+                    return;
+                }
+
+                // Only calculate if predictions are made
+                if (!predictionFirst || !predictionSecond) {
+                    setCurrentWinners({ first: null, second: null });
+                    return;
+                }
+
+                // Only use exposed cards (not flipped)
+                const firstFlopCards = firstFlop.exposed?.length || 0;
+                const secondFlopCards = secondFlop.exposed?.length || 0;
+
+                // Show predicted winners immediately when predictions are made
+                if (firstFlopCards === 3 && secondFlopCards === 3) {
+                    // Only 3 cards exposed, just show predictions
+                    setCurrentWinners({
+                        first: predictionFirst,
+                        second: predictionSecond
+                    });
+                    return;
+                }
+
+                // When we have 4 or 5 exposed cards, calculate actual winners
+                if (firstFlopCards >= 4 || secondFlopCards >= 4) {
+                    // Make API call to determine current winners based on exposed cards only
+                    fetch('/reveal_winner', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            players,
+                            first_flop: firstFlopCards >= 3 ? firstFlop.exposed : [],
+                            second_flop: secondFlopCards >= 3 ? secondFlop.exposed : [],
+                            prediction_first: predictionFirst || "temp",
+                            prediction_second: predictionSecond || "temp"
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        setCurrentWinners({
+                            first: firstFlopCards >= 3 ? data.winner_first : null,
+                            second: secondFlopCards >= 3 ? data.winner_second : null
+                        });
+                    })
+                    .catch(() => {
+                        // On error, keep predictions as winners
+                        setCurrentWinners({
+                            first: predictionFirst,
+                            second: predictionSecond
+                        });
+                    });
+                }
+            }
+
+            // Update winners when predictions are made or cards are revealed
+            useEffect(() => {
+                if (gameStarted && !showResults) {
+                    updateCurrentWinners();
+                }
+            }, [firstFlop.exposed, secondFlop.exposed, gameStarted, showResults, predictionFirst, predictionSecond]);
+
             // --- Add the startGame function inside PokerGame ---
             function startGame(skipLeaderboard = false) {
+                // Save name to history
+                if (playerName.trim()) {
+                    saveNameToHistory(playerName.trim());
+                }
+
+                // Check if we've reached 20 flops and need to submit to leaderboard
+                if (totalPredictions >= 20 && playerName.trim()) {
+                    // Submit to leaderboard
+                    fetch('/update_leaderboard', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: playerName.trim(),
+                            correct: correctPredictions,
+                            total: totalPredictions,
+                            difficulty: difficulty
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Reset stats after submitting
+                            setCorrectPredictions(0);
+                            setTotalPredictions(0);
+                            localStorage.setItem('correctPredictions', 0);
+                            localStorage.setItem('totalPredictions', 0);
+                            // Refresh leaderboard
+                            fetch('/leaderboard')
+                                .then(res => res.json())
+                                .then(data => {
+                                    setLeaderboard(data.leaderboard || []);
+                                });
+                        }
+                    })
+                    .catch(err => console.error("Failed to update leaderboard:", err));
+                }
+
                 setLoading(true);
                 fetch('/start_game', {
                     method: 'POST',
@@ -633,6 +865,16 @@
                 });
             }
 
+            // --- Add resetPredictionAccuracy function ---
+            function resetPredictionAccuracy() {
+                if (confirm("Are you sure you want to reset your prediction accuracy? This will clear all your stats.")) {
+                    setCorrectPredictions(0);
+                    setTotalPredictions(0);
+                    localStorage.setItem('correctPredictions', 0);
+                    localStorage.setItem('totalPredictions', 0);
+                }
+            }
+
             // --- Add the flipCard function inside PokerGame ---
             function flipCard(flopKey, flippedIdx) {
                 // Determine which flop to update
@@ -671,6 +913,8 @@
                         if (data.flops.first_flop) setFirstFlop(data.flops.first_flop);
                         if (data.flops.second_flop) setSecondFlop(data.flops.second_flop);
                         setError(null);
+                        // Update current winners after revealing a card
+                        setTimeout(() => updateCurrentWinners(), 100);
                     }
                 })
                 .catch(() => setError("Failed to reveal card."));
@@ -696,13 +940,34 @@
             // --- Add the revealWinner function inside PokerGame ---
             function revealWinner() {
                 setLoading(true);
+                
+                // Reveal all remaining cards before showing results
+                const allFlops = {
+                    first_flop: { ...firstFlop },
+                    second_flop: { ...secondFlop }
+                };
+                
+                // Move all flipped cards to exposed for both flops
+                if (allFlops.first_flop.flipped && allFlops.first_flop.flipped.length > 0) {
+                    allFlops.first_flop.exposed = [...allFlops.first_flop.exposed, ...allFlops.first_flop.flipped];
+                    allFlops.first_flop.flipped = [];
+                }
+                if (allFlops.second_flop.flipped && allFlops.second_flop.flipped.length > 0) {
+                    allFlops.second_flop.exposed = [...allFlops.second_flop.exposed, ...allFlops.second_flop.flipped];
+                    allFlops.second_flop.flipped = [];
+                }
+                
+                // Update the state to show all cards revealed
+                setFirstFlop(allFlops.first_flop);
+                setSecondFlop(allFlops.second_flop);
+                
                 fetch('/reveal_winner', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         players,
-                        first_flop: firstFlop.exposed.concat(firstFlop.flipped || []),
-                        second_flop: secondFlop && secondFlop.exposed.concat(secondFlop.flipped || []),
+                        first_flop: allFlops.first_flop.exposed,
+                        second_flop: allFlops.second_flop.exposed,
                         prediction_first: predictionFirst,
                         prediction_second: predictionSecond
                     })
@@ -729,6 +994,40 @@
                     setTotalPredictions(total);
                     localStorage.setItem('correctPredictions', correct);
                     localStorage.setItem('totalPredictions', total);
+
+                    // Check if we've reached 20 flops
+                    if (total >= 20 && playerName.trim()) {
+                        // Auto-submit to leaderboard
+                        fetch('/update_leaderboard', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: playerName.trim(),
+                                correct: correct,
+                                total: total,
+                                difficulty: difficulty
+                            })
+                        })
+                        .then(res => res.json())
+                        .then(submitData => {
+                            if (submitData.success) {
+                                // Show a message that stats were submitted
+                                alert(`Congratulations! You've completed 20 flops with ${Math.round((correct / total) * 100)}% accuracy. Your score has been submitted to the leaderboard!`);
+                                // Reset stats
+                                setCorrectPredictions(0);
+                                setTotalPredictions(0);
+                                localStorage.setItem('correctPredictions', 0);
+                                localStorage.setItem('totalPredictions', 0);
+                                // Refresh leaderboard
+                                fetch('/leaderboard')
+                                    .then(res => res.json())
+                                    .then(leaderboardData => {
+                                        setLeaderboard(leaderboardData.leaderboard || []);
+                                    });
+                            }
+                        })
+                        .catch(err => console.error("Failed to update leaderboard:", err));
+                    }
                 })
                 .catch(() => {
                     setError("Failed to reveal winner.");
@@ -738,6 +1037,21 @@
 
             // --- Helper to reset for next round ---
             function resetGame() {
+                setWinner(null);
+                setShowResults(false);
+                setPredictionFirst("");
+                setPredictionSecond("");
+                setPredictionsLocked(false);
+                setHighlightFourth(false);
+                setHighlightPrediction(true);
+                setError(null);
+                setAllCardsRevealed(false);
+                setCurrentWinners({ first: null, second: null });
+                startGame(true); // Automatically start new game with same options
+            }
+
+            // --- Add goToGameOptions function here ---
+            function goToGameOptions() {
                 setGameStarted(false);
                 setSkipOptions(false);
                 setWinner(null);
@@ -748,10 +1062,9 @@
                 setHighlightFourth(false);
                 setHighlightPrediction(true);
                 setError(null);
+                setAllCardsRevealed(false);
+                if (window.scrollToGameOptions) window.scrollToGameOptions();
             }
-
-            // --- Add state for showing results ---
-            const [showResults, setShowResults] = useState(false);
 
             // --- Add effect to glow prediction dropdowns until selected ---
             useEffect(() => {
@@ -765,10 +1078,41 @@
             useEffect(() => {
                 if (predictionFirst && predictionSecond) {
                     setPredictionsLocked(true);
+                    // Immediately show predicted winners
+                    updateCurrentWinners();
                 } else {
                     setPredictionsLocked(false);
                 }
             }, [predictionFirst, predictionSecond]);
+
+            // Add effect to fetch leaderboard on component mount
+            useEffect(() => {
+                fetch('/leaderboard')
+                    .then(res => res.json())
+                    .then(data => {
+                        setLeaderboard(data.leaderboard || []);
+                    })
+                    .catch(err => console.error("Failed to fetch leaderboard:", err));
+            }, []);
+
+            // Update allCardsRevealed state when both flops have no flipped cards left
+            useEffect(() => {
+                if (
+                    gameStarted &&
+                    firstFlop.flipped.length === 0 &&
+                    secondFlop.flipped.length === 0 &&
+                    !allCardsRevealed
+                ) {
+                    setAllCardsRevealed(true);
+                }
+            }, [firstFlop.flipped, secondFlop.flipped, gameStarted]);
+
+            // Trigger revealWinner when allCardsRevealed becomes true
+            useEffect(() => {
+                if (allCardsRevealed && !showResults && !winner && predictionFirst && predictionSecond) {
+                    revealWinner();
+                }
+            }, [allCardsRevealed, showResults, winner, predictionFirst, predictionSecond]);
 
             // --- Add prediction accuracy calculation ---
             const accuracy = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
@@ -777,111 +1121,135 @@
             return React.createElement(
                 'div',
                 null,
-                // --- Only show banner/logo when NOT in game ---
-                (!gameStarted && !skipOptions) && React.createElement('div', {
-                    className: "w-full flex flex-col items-center justify-center py-8 mb-4"
+                // --- Show banner/logo always with game options on the right ---
+                React.createElement('div', {
+                    className: "w-full flex flex-col md:flex-row items-center justify-between py-4 mb-4 px-4 bg-[#232946] bg-opacity-90"
                 },
-                    React.createElement('img', {
-                        src: "/static/logo.png",
-                        alt: "Bombpot Poker Logo",
-                        style: { width: 120, height: 120, marginBottom: 12 },
-                        className: "mx-auto drop-shadow-lg"
-                    }),
-                    React.createElement('h1', {
-                        className: "game-title text-4xl md:text-5xl font-extrabold tracking-wider mb-2"
-                    }, "Bombpot Poker"),
+                    // Left side: Logo and title
                     React.createElement('div', {
-                        className: "text-yellow-300 text-lg md:text-xl font-semibold tracking-wide mb-2"
-                    }, "Texas Hold'em Bombpot Trainer")
-                ),
-                // Game Options and Leaderboard (show if not started and not skipping options)
-                (!gameStarted && !skipOptions) && [
-                    React.createElement('div', {
-                        id: "game-options",
-                        key: "game-options"
+                        className: "flex flex-col md:flex-row items-center"
                     },
-                        React.createElement('div', {
-                            className: "flex flex-col md:flex-row gap-10 justify-center w-full max-w-4xl mx-auto mb-8"
+                        React.createElement('a', {
+                            href: "/",
+                            onClick: (e) => {
+                                e.preventDefault();
+                                goToGameOptions();
+                            },
+                            className: "cursor-pointer"
                         },
-                            React.createElement('div', { className: "flex flex-col items-center bg-[#232946] bg-opacity-90 rounded-xl p-6 shadow-xl" },
-                                // --- Player Name Input ---
-                                React.createElement('label', { className: "text-white mb-2 text-lg font-semibold" }, "Your Name:"),
-                                React.createElement('input', {
-                                    className: "rounded px-2 py-1 mb-4 text-base font-semibold bg-[#232946] border border-gray-400 text-white w-48",
-                                    type: "text",
-                                    value: playerName,
-                                    maxLength: 32,
-                                    placeholder: "Enter your name",
-                                    onChange: e => setPlayerName(e.target.value.replace(/[^a-zA-Z0-9 _-]/g, "")),
-                                    autoFocus: true
-                                }),
-                                React.createElement('label', { className: "text-white mb-2 text-lg font-semibold" }, "Number of Players:"),
-                                React.createElement('select', {
-                                    className: "rounded px-2 py-1 custom-select mb-4 text-base font-semibold",
-                                    value: numPlayers,
-                                    onChange: e => setNumPlayers(Number(e.target.value)),
-                                    disabled: loading
-                                },
-                                    [2, 3, 4, 5, 6].map(n =>
-                                        React.createElement('option', { key: n, value: n }, n)
-                                    )
-                                ),
-                                React.createElement('label', { className: "text-white mb-2 text-lg font-semibold mt-2" }, "Select Difficulty:"),
-                                React.createElement('select', {
-                                    className: "rounded px-2 py-1 custom-select mb-4 text-base font-semibold",
-                                    value: difficulty,
-                                    onChange: e => setDifficulty(e.target.value),
-                                    disabled: loading
-                                },
-                                    ["easy", "difficult"].map(level =>
-                                        React.createElement('option', { key: level, value: level }, level.charAt(0).toUpperCase() + level.slice(1))
-                                    )
-                                ),
-                                React.createElement('button', {
-                                    className: "poker-chip px-8 py-3 rounded-full text-lg mt-2",
-                                    onClick: () => startGame(false),
-                                    disabled: loading || !playerName.trim()
-                                }, loading ? "Dealing..." : "Start Game")
+                            React.createElement('img', {
+                                src: "/static/logo.png",
+                                alt: "Bombpot Poker Logo",
+                                style: { width: 80, height: 80, marginRight: 16 },
+                                className: "drop-shadow-lg hover:scale-105 transition-transform",
+                                onError: (e) => {
+                                    // Hide the image if it fails to load
+                                    e.target.style.display = 'none';
+                                }
+                            })
+                        ),
+                        React.createElement('a', {
+                            href: "/",
+                            onClick: (e) => {
+                                e.preventDefault();
+                                goToGameOptions();
+                            },
+                            className: "cursor-pointer no-underline"
+                        },
+                            React.createElement('div', { className: "text-center md:text-left" },
+                                React.createElement('h1', {
+                                    className: "game-title text-2xl md:text-3xl font-extrabold tracking-wider"
+                                }, "Bombpot Poker"),
+                                React.createElement('div', {
+                                    className: "text-yellow-300 text-sm md:text-base font-semibold tracking-wide"
+                                }, "Texas Hold'em Bombpot Trainer")
+                            )
+                        )
+                    ),
+                    // Right side: Game options (only show if not in game)
+                    (!gameStarted && !skipOptions) && React.createElement('div', {
+                        className: "flex flex-col md:flex-row items-center gap-2 mt-4 md:mt-0"
+                    },
+                        React.createElement('div', { className: "relative" },
+                            React.createElement('input', {
+                                className: "rounded px-2 py-1 text-sm font-semibold bg-[#232946] border border-gray-400 text-white w-32",
+                                type: "text",
+                                value: playerName,
+                                maxLength: 32,
+                                placeholder: "Your name",
+                                onChange: e => setPlayerName(e.target.value.replace(/[^a-zA-Z0-9 _-]/g, "")),
+                                autoFocus: true,
+                                list: "name-history"
+                            }),
+                            React.createElement('datalist', { id: "name-history" },
+                                nameHistory.map(name => 
+                                    React.createElement('option', { key: name, value: name })
+                                )
                             )
                         ),
-                        // --- Leaderboard always under game options ---
-                        React.createElement('div', { className: "mt-8 mb-8 flex flex-col items-center" },
-                            React.createElement('h3', { className: "text-xl font-bold text-yellow-700 mb-2 text-center" }, "Leaderboard (20+ flops)"),
-                            leaderboard && (!Array.isArray(leaderboard) || leaderboard.filter(e => e && typeof e.correct === "number" && typeof e.total === "number" && e.total >= 20).length === 0)
-                                ? React.createElement('div', { className: "text-gray-600 text-center" }, "No leaderboard entries yet.")
-                                : React.createElement('table', { className: "min-w-full text-sm bg-[#181e2a] bg-opacity-100 rounded-xl overflow-hidden border border-gray-700" },
-                                    React.createElement('thead', null,
-                                        React.createElement('tr', { className: "bg-[#232946] text-yellow-300" },
-                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Rank"),
-                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Name"),
-                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Accuracy"),
-                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Flops"),
-                                            React.createElement('th', { className: "px-4 py-2 text-left" }, "Difficulty")
-                                        )
-                                    ),
-                                    React.createElement('tbody', null,
-                                        leaderboard.map((entry, idx) =>
-                                            React.createElement('tr', {
-                                                key: entry.name + entry.difficulty,
-                                                className:
-                                                    playerName.trim().toLowerCase() === entry.name.trim().toLowerCase() && entry.difficulty === difficulty
-                                                        ? "bg-yellow-300 text-black font-bold"
-                                                        : (idx % 2 === 0 ? "bg-[#232946] text-white" : "bg-[#181e2a] text-white")
-                                            },
-                                                React.createElement('td', { className: "px-4 py-2" }, idx + 1),
-                                                React.createElement('td', { className: "px-4 py-2" }, entry.name),
-                                                React.createElement('td', { className: "px-4 py-2" },
-                                                    `${Math.round((entry.correct / entry.total) * 100)}%`
-                                                ),
-                                                React.createElement('td', { className: "px-4 py-2" }, entry.total),
-                                                React.createElement('td', { className: "px-4 py-2" }, entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : "")
-                                            )
-                                        )
+                        React.createElement('select', {
+                            className: "rounded px-2 py-1 custom-select text-sm font-semibold",
+                            value: numPlayers,
+                            onChange: e => setNumPlayers(Number(e.target.value)),
+                            disabled: loading
+                        },
+                            [2, 3, 4, 5, 6].map(n =>
+                                React.createElement('option', { key: n, value: n }, `${n} Players`)
+                            )
+                        ),
+                        React.createElement('select', {
+                            className: "rounded px-2 py-1 custom-select text-sm font-semibold",
+                            value: difficulty,
+                            onChange: e => setDifficulty(e.target.value),
+                            disabled: loading
+                        },
+                            ["easy", "difficult"].map(level =>
+                                React.createElement('option', { key: level, value: level }, level.charAt(0).toUpperCase() + level.slice(1))
+                            )
+                        ),
+                        React.createElement('button', {
+                            className: "poker-chip px-6 py-2 rounded-full text-sm",
+                            onClick: () => startGame(false),
+                            disabled: loading || !playerName.trim()
+                        }, loading ? "Dealing..." : "Start Game")
+                    )
+                ),
+                // Leaderboard (show if not started and not skipping options)
+                (!gameStarted && !skipOptions) && React.createElement('div', { className: "mb-8 flex flex-col items-center" },
+                    React.createElement('h3', { className: "text-xl font-bold text-yellow-700 mb-2 text-center" }, "Leaderboard (20+ flops)"),
+                    leaderboard && (!Array.isArray(leaderboard) || leaderboard.filter(e => e && typeof e.correct === "number" && typeof e.total === "number" && e.total >= 20).length === 0)
+                        ? React.createElement('div', { className: "text-gray-600 text-center" }, "No leaderboard entries yet.")
+                        : React.createElement('table', { className: "min-w-full text-sm bg-[#181e2a] bg-opacity-100 rounded-xl overflow-hidden border border-gray-700" },
+                            React.createElement('thead', null,
+                                React.createElement('tr', { className: "bg-[#232946] text-yellow-300" },
+                                    React.createElement('th', { className: "px-4 py-2 text-left" }, "Rank"),
+                                    React.createElement('th', { className: "px-4 py-2 text-left" }, "Name"),
+                                    React.createElement('th', { className: "px-4 py-2 text-left" }, "Accuracy"),
+                                    React.createElement('th', { className: "px-4 py-2 text-left" }, "Flops"),
+                                    React.createElement('th', { className: "px-4 py-2 text-left" }, "Difficulty")
+                                )
+                            ),
+                            React.createElement('tbody', null,
+                                leaderboard.map((entry, idx) =>
+                                    React.createElement('tr', {
+                                        key: `${entry.name}-${entry.difficulty}-${idx}`, // Add index to make key unique
+                                        className:
+                                            playerName.trim().toLowerCase() === entry.name.trim().toLowerCase() && entry.difficulty === difficulty
+                                                ? "bg-yellow-300 text-black font-bold"
+                                                : (idx % 2 === 0 ? "bg-[#232946] text-white" : "bg-[#181e2a] text-white")
+                                    },
+                                        React.createElement('td', { className: "px-4 py-2" }, idx + 1),
+                                        React.createElement('td', { className: "px-4 py-2" }, entry.name),
+                                        React.createElement('td', { className: "px-4 py-2" },
+                                            `${Math.round((entry.correct / entry.total) * 100)}%`
+                                        ),
+                                        React.createElement('td', { className: "px-4 py-2" }, entry.total),
+                                        React.createElement('td', { className: "px-4 py-2" }, entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : "")
                                     )
                                 )
+                            )
                         )
-                    )
-                ],
+                ),
                 // --- Main UI (show only if gameStarted or skipOptions) ---
                 (gameStarted || skipOptions) && React.createElement('div', { className: "min-h-screen flex flex-col items-center bg-gradient-to-br from-[#232946] via-[#1a2a3a] to-[#0a101a] py-8" },
                     React.createElement('div', { className: "flex flex-col items-center w-full max-w-5xl" },
@@ -938,7 +1306,12 @@
                                 players.length === 0
                                     ? React.createElement('div', { className: "text-white opacity-60" }, "No players yet. Start a game!")
                                     : players.map((player, idx) =>
-                                        React.createElement(PlayerHand, { key: idx, player: player, idx: idx })
+                                        React.createElement(PlayerHand, { 
+                                            key: idx, 
+                                            player: player, 
+                                            idx: idx,
+                                            winningPlayers: currentWinners
+                                        })
                                     )
                             )
                         )
@@ -955,7 +1328,11 @@
                     React.createElement('div', { className: "text-yellow-300 font-bold mb-2 text-lg" },
                         "Prediction Accuracy: ",
                         React.createElement('span', { className: "text-white" }, `${accuracy}%`),
-                        React.createElement('span', { className: "text-gray-400 text-sm ml-2" }, `(${correctPredictions}/${totalPredictions})`)
+                        React.createElement('span', { className: "text-gray-400 text-sm ml-2" }, `(${correctPredictions}/${totalPredictions})`),
+                        totalPredictions > 0 && React.createElement('button', {
+                            className: "ml-4 text-sm text-red-400 hover:text-red-300 underline",
+                            onClick: resetPredictionAccuracy
+                        }, "Reset")
                     ),
                     error && React.createElement('div', { className: "bg-red-200 text-red-800 rounded px-4 py-2 mb-4" },
                         typeof error === "string"
@@ -966,7 +1343,7 @@
                         React.createElement('h2', { className: "text-2xl font-bold mb-4 text-yellow-600" }, "Results"),
                         React.createElement('div', { className: "mb-4" },
                             React.createElement('div', { className: "font-semibold mb-1" }, "First Flop Winner:"),
-                            React.createElement('div', null, winner.winner_first, " (", winner.hand_type_first, ")"),
+                            React.createElement('div', null, winner.winner_first, " (", describeHandType(winner.hand_type_first), ")"),
                             winner.prediction_correct_first !== undefined &&
                                 React.createElement('div', {
                                     className: winner.prediction_correct_first ? "text-green-600 font-bold" : "text-red-600 font-bold"
@@ -975,16 +1352,58 @@
                         winner.winner_second &&
                         React.createElement('div', { className: "mb-4" },
                             React.createElement('div', { className: "font-semibold mb-1" }, "Second Flop Winner:"),
-                            React.createElement('div', null, winner.winner_second, " (", winner.hand_type_second, ")"),
+                            React.createElement('div', null, winner.winner_second, " (", describeHandType(winner.hand_type_second), ")"),
                             winner.prediction_correct_second !== undefined &&
                                 React.createElement('div', {
                                     className: winner.prediction_correct_second ? "text-green-600 font-bold" : "text-red-600 font-bold"
                                 }, winner.prediction_correct_second ? "Your prediction was correct!" : "Your prediction was incorrect.")
                         ),
-                        React.createElement('button', {
-                            className: "poker-chip px-8 py-3 rounded-full text-lg mt-4",
-                            onClick: resetGame
-                        }, "Play Again")
+                        React.createElement('div', { className: "flex gap-4 justify-center" },
+                            React.createElement('button', {
+                                className: "poker-chip px-8 py-3 rounded-full text-lg mt-4",
+                                onClick: resetGame
+                            }, "Play Again"),
+                            React.createElement('button', {
+                                className: "poker-chip px-8 py-3 rounded-full text-lg mt-4 ml-4",
+                                onClick: goToGameOptions
+                            }, "Game Options")
+                        )
+                    ),
+                    // --- Add Leaderboard after results ---
+                    showResults && React.createElement('div', { className: "mt-8 mb-8 flex flex-col items-center max-w-5xl w-full" },
+                        React.createElement('h3', { className: "text-xl font-bold text-yellow-300 mb-2 text-center" }, "Leaderboard (20+ flops)"),
+                        leaderboard && (!Array.isArray(leaderboard) || leaderboard.filter(e => e && typeof e.correct === "number" && typeof e.total === "number" && e.total >= 20).length === 0)
+                            ? React.createElement('div', { className: "text-gray-400 text-center" }, "No leaderboard entries yet.")
+                            : React.createElement('table', { className: "text-sm bg-[#181e2a] bg-opacity-100 rounded-xl overflow-hidden border border-gray-700" },
+                                React.createElement('thead', null,
+                                    React.createElement('tr', { className: "bg-[#232946] text-yellow-300" },
+                                        React.createElement('th', { className: "px-4 py-2 text-left" }, "Rank"),
+                                        React.createElement('th', { className: "px-4 py-2 text-left" }, "Name"),
+                                        React.createElement('th', { className: "px-4 py-2 text-left" }, "Accuracy"),
+                                        React.createElement('th', { className: "px-4 py-2 text-left" }, "Flops"),
+                                        React.createElement('th', { className: "px-4 py-2 text-left" }, "Difficulty")
+                                    )
+                                ),
+                                React.createElement('tbody', null,
+                                    leaderboard.filter(e => e && typeof e.correct === "number" && typeof e.total === "number" && e.total >= 20).map((entry, idx) =>
+                                        React.createElement('tr', {
+                                            key: `${entry.name}-${entry.difficulty}-${idx}`, // Add index to make key unique
+                                            className:
+                                                playerName.trim().toLowerCase() === entry.name.trim().toLowerCase() && entry.difficulty === difficulty
+                                                    ? "bg-yellow-300 text-black font-bold"
+                                                    : (idx % 2 === 0 ? "bg-[#232946] text-white" : "bg-[#181e2a] text-white")
+                                        },
+                                            React.createElement('td', { className: "px-4 py-2" }, idx + 1),
+                                            React.createElement('td', { className: "px-4 py-2" }, entry.name),
+                                            React.createElement('td', { className: "px-4 py-2" },
+                                                `${Math.round((entry.correct / entry.total) * 100)}%`
+                                            ),
+                                            React.createElement('td', { className: "px-4 py-2" }, entry.total),
+                                            React.createElement('td', { className: "px-4 py-2" }, entry.difficulty ? entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1) : "")
+                                        )
+                                    )
+                                )
+                            )
                     )
                 ),
                 // --- Game Rules at the very bottom, always rendered ---
