@@ -120,7 +120,7 @@
         /* Responsive tweaks */
         @media (max-width: 768px) {
             .overlap-cards > * {
-                margin-right: -1rem;
+                margin-right: -1.5rem;
             }
             .poker-card {
                 min-height: 4.5rem !important;
@@ -220,7 +220,7 @@
                 padding-right: 0.5rem !important;
             }
             .overlap-cards > * {
-                margin-right: -0.8rem;
+                margin-right: -1.2rem;
             }
         }
         /* Responsive rules box */
@@ -438,6 +438,17 @@
             font-weight: bold;
             letter-spacing: 1px;
         }
+        @media (max-width: 768px) {
+            .logo-glow,
+            .logo-container img.logo-glow {
+                width: 140px !important;
+                height: 140px !important;
+            }
+            .poker-chip-logo {
+                width: 140px !important;
+                height: 140px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -517,7 +528,7 @@
                 : winningPlayers?.second === playerName;
             
             // Create separate container classes for each flop
-            let containerClass = "flex flex-col items-center mx-1 md:mx-2 my-2 p-2 md:p-3 rounded-lg transition-all duration-300 relative";
+            let containerClass = "flex flex-col items-center mx-0 md:mx-1 my-1 md:my-2 p-1 md:p-2 rounded-lg transition-all duration-300 relative";
             
             // Add visual indicators for each flop separately
             const indicators = [];
@@ -1075,43 +1086,52 @@
                     return res.json();
                 })
                 .then(data => {
+                    // Update current winners FIRST with the final results
+                    setCurrentWinners({
+                        first: data.winner_first,
+                        second: data.winner_second
+                    });
+                    
                     // Now update the state to show all cards revealed
                     const allFlops = {
                         first_flop: { exposed: firstFlopData, flipped: [] },
                         second_flop: { exposed: secondFlopData, flipped: [] }
                     };
                     
-                    setFirstFlop(allFlops.first_flop);
-                    setSecondFlop(allFlops.second_flop);
-                    setWinner(data);
-                    setShowResults(true);
-                    setLoading(false);
-                    setError(null);
-                    
-                    // Update prediction statistics
-                    const correctCount = (data.prediction_correct_first ? 1 : 0) + 
-                                       (data.prediction_correct_second ? 1 : 0);
-                    const newCorrect = correctPredictions + correctCount;
-                    const newTotal = totalPredictions + 2;
-                    
-                    setCorrectPredictions(newCorrect);
-                    setTotalPredictions(newTotal);
-                    localStorage.setItem('correctPredictions', newCorrect);
-                    localStorage.setItem('totalPredictions', newTotal);
-
-                    // Auto-scroll to results after a short delay to ensure DOM is updated
+                    // Use setTimeout to ensure currentWinners state is updated before updating flops
                     setTimeout(() => {
-                        const resultsElement = document.getElementById('game-results');
-                        if (resultsElement) {
-                            // Try multiple scroll methods for better compatibility
-                            resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            
-                            // Fallback: calculate position and scroll manually
-                            const yOffset = -100; // Adjust this value to fine-tune scroll position
-                            const y = resultsElement.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                            window.scrollTo({ top: y, behavior: 'smooth' });
-                        }
-                    }, 300); // Increased delay to ensure React has rendered
+                        setFirstFlop(allFlops.first_flop);
+                        setSecondFlop(allFlops.second_flop);
+                        setWinner(data);
+                        setShowResults(true);
+                        setLoading(false);
+                        setError(null);
+                        
+                        // Update prediction statistics
+                        const correctCount = (data.prediction_correct_first ? 1 : 0) + 
+                                           (data.prediction_correct_second ? 1 : 0);
+                        const newCorrect = correctPredictions + correctCount;
+                        const newTotal = totalPredictions + 2;
+                        
+                        setCorrectPredictions(newCorrect);
+                        setTotalPredictions(newTotal);
+                        localStorage.setItem('correctPredictions', newCorrect);
+                        localStorage.setItem('totalPredictions', newTotal);
+
+                        // Auto-scroll to results after a short delay to ensure DOM is updated
+                        setTimeout(() => {
+                            const resultsElement = document.getElementById('game-results');
+                            if (resultsElement) {
+                                // Try multiple scroll methods for better compatibility
+                                resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                
+                                // Fallback: calculate position and scroll manually
+                                const yOffset = -100; // Adjust this value to fine-tune scroll position
+                                const y = resultsElement.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                                window.scrollTo({ top: y, behavior: 'smooth' });
+                            }
+                        }, 300); // Increased delay to ensure React has rendered
+                    }, 50); // Small delay to ensure state update happens in correct order
                 })
                 .catch(err => {
                     console.error("Error revealing winner:", err);
@@ -1232,7 +1252,8 @@
                     React.createElement('div', {
                         className: "flex flex-col md:flex-row items-center"
                     },
-                        React.createElement('a', {
+                        // Only show logo on desktop, or on mobile when game not started
+                        (!gameStarted || !isMobile) && React.createElement('a', {
                             href: "/",
                             onClick: (e) => {
                                 e.preventDefault();
@@ -1261,7 +1282,8 @@
                                 }
                             })
                         ),
-                        React.createElement('a', {
+                        // Only show title on desktop, or on mobile when game not started
+                        (!gameStarted || !isMobile) && React.createElement('a', {
                             href: "/",
                             onClick: (e) => {
                                 e.preventDefault();
@@ -1279,6 +1301,11 @@
                             )
                         )
                     ),
+                    // Add a "Menu" button on mobile when game is started
+                    (gameStarted && isMobile) && React.createElement('button', {
+                        className: "poker-chip px-4 py-2 rounded-full text-sm",
+                        onClick: goToGameOptions
+                    }, "Menu"),
                     // Right side: Game options (only show if not in game)
                     (!gameStarted && !skipOptions) && React.createElement('div', {
                         className: "flex flex-col md:flex-row items-center gap-2 mt-4 md:mt-0"
@@ -1412,9 +1439,9 @@
                             )
                         ),
                         // --- Felt background for player hands ---
-                        React.createElement('div', { className: "felt-bg p-2 md:p-4 lg:p-8 mb-10 w-full rounded-xl" },
+                        React.createElement('div', { className: "felt-bg p-1 md:p-4 lg:p-8 mb-10 w-full rounded-xl" },
                             gameStarted && React.createElement('div', {
-                                className: "flex flex-wrap justify-center gap-2 md:gap-4 lg:gap-6 w-full"
+                                className: "flex flex-wrap justify-center gap-1 md:gap-2 lg:gap-4 w-full"
                             },
                                 players.length === 0
                                     ? React.createElement('div', { className: "text-white opacity-60" }, "No players yet. Start a game!")
@@ -1588,6 +1615,7 @@
                     window.ReactDOM.render(React.createElement(PokerGame), rootEl);
                 }
                 console.log("ReactDOM.render called"); // <-- Add this line
+           
             } catch (e) {
                 console.error("React render error:", e);
                 rootEl.innerHTML = "<div style='color:red'>React render error: " + e + "</div>";

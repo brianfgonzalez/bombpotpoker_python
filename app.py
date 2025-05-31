@@ -230,33 +230,55 @@ def determine_winner_multiple(players, flop):
             print("Error: Player hand is not a list:", player_hand)
             continue
 
-        # Generate all combinations of 5 cards (2 from player + 3 from flop)
-        combinations_list = [
-            list(comb) for comb in combinations(player_hand + flop, 5)
-            if sum(1 for card in comb if card in player_hand) == 2
-        ]
-
-        if not combinations_list:
-            print(f"Error: No valid combinations generated for Player {index + 1}.")
-            continue
-
-        # Find the best combination for the current player
-        best_combination = max(combinations_list, key=lambda hand: evaluate_hand(hand)[0])
-        score, hand_type, sorted_cards = evaluate_hand(best_combination)
+        # For bombpot poker, players must use exactly 2 cards from their 4-card hand
+        # Generate all combinations of 2 cards from the player's 4 cards
+        player_card_combinations = list(combinations(player_hand, 2))
         
-        player_evaluations.append({
-            'player': f"Player {index + 1}",
-            'score': score,
-            'hand_type': hand_type,
-            'hand': best_combination,
-            'evaluation': (score, hand_type, sorted_cards)
-        })
+        best_score_for_player = -1
+        best_combination_for_player = None
+        best_eval_for_player = None
+        
+        # Try each combination of 2 cards from player's hand
+        for player_two_cards in player_card_combinations:
+            # Generate all combinations of 5 cards (2 from player + 3 from flop)
+            flop_combinations = list(combinations(flop, 3))
+            
+            for flop_three_cards in flop_combinations:
+                # Combine 2 player cards + 3 flop cards
+                five_card_hand = list(player_two_cards) + list(flop_three_cards)
+                score, hand_type, sorted_cards = evaluate_hand(five_card_hand)
+                
+                if score > best_score_for_player:
+                    best_score_for_player = score
+                    best_combination_for_player = five_card_hand
+                    best_eval_for_player = (score, hand_type, sorted_cards)
+                elif score == best_score_for_player:
+                    # If scores are equal, use compare_hands to determine the better hand
+                    current_eval = (score, hand_type, sorted_cards)
+                    if compare_hands(current_eval, best_eval_for_player) > 0:
+                        best_combination_for_player = five_card_hand
+                        best_eval_for_player = current_eval
+
+        if best_combination_for_player and best_eval_for_player:
+            player_evaluations.append({
+                'player': f"Player {index + 1}",
+                'score': best_score_for_player,
+                'hand_type': best_eval_for_player[1],
+                'hand': best_combination_for_player,
+                'evaluation': best_eval_for_player
+            })
 
     if not player_evaluations:
         raise ValueError("No valid hands to evaluate.")
 
-    # Sort players by their evaluation (best first)
-    player_evaluations.sort(key=lambda x: x['evaluation'], reverse=True)
+    # Sort players using compare_hands for proper comparison
+    from functools import cmp_to_key
+    
+    def compare_player_evaluations(p1, p2):
+        # Use compare_hands to compare the evaluation tuples
+        return -compare_hands(p1['evaluation'], p2['evaluation'])  # Negative for descending order
+    
+    player_evaluations.sort(key=cmp_to_key(compare_player_evaluations))
     
     # Find all players with the best hand
     best_eval = player_evaluations[0]['evaluation']
