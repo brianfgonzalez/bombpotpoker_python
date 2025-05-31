@@ -389,25 +389,6 @@
             filter: drop-shadow(0 0 30px rgba(255, 224, 130, 0.8)) 
                     drop-shadow(0 0 60px rgba(255, 224, 130, 0.4));
         }
-        .logo-shine {
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                105deg,
-                transparent 40%,
-                rgba(255, 255, 255, 0.7) 50%,
-                transparent 60%
-            );
-            animation: shine 3s infinite;
-            pointer-events: none;
-        }
-        @keyframes shine {
-            0% { transform: translateX(-100%) translateY(-100%); }
-            100% { transform: translateX(100%) translateY(100%); }
-        }
         .logo-bg {
             position: absolute;
             inset: -10px;
@@ -526,8 +507,14 @@
             
             // Check if this player is winning any flop
             const playerName = `Player ${idx + 1}`;
-            const isWinningFirst = winningPlayers?.first === playerName;
-            const isWinningSecond = winningPlayers?.second === playerName;
+            
+            // Handle both string and array winners
+            const isWinningFirst = Array.isArray(winningPlayers?.first) 
+                ? winningPlayers.first.includes(playerName)
+                : winningPlayers?.first === playerName;
+            const isWinningSecond = Array.isArray(winningPlayers?.second)
+                ? winningPlayers.second.includes(playerName)
+                : winningPlayers?.second === playerName;
             
             // Create separate container classes for each flop
             let containerClass = "flex flex-col items-center mx-1 md:mx-2 my-2 p-2 md:p-3 rounded-lg transition-all duration-300 relative";
@@ -754,7 +741,7 @@
             const [players, setPlayers] = useState([]);
             const [firstFlop, setFirstFlop] = useState({ exposed: [], flipped: [] });
             const [secondFlop, setSecondFlop] = useState({ exposed: [], flipped: [] });
-            const [numPlayers, setNumPlayers] = useState(2);
+            const [numPlayers, setNumPlayers] = useState(4);  // Changed from 2 to 4
             const [difficulty, setDifficulty] = useState("easy");
             const [loading, setLoading] = useState(false);
             const [winner, setWinner] = useState(null);
@@ -822,7 +809,7 @@
                 const firstFlopCards = firstFlop.exposed?.length || 0;
                 const secondFlopCards = secondFlop.exposed?.length || 0;
 
-                // Show predicted winners immediately when predictions are made
+                // Show predicted winners immediately when predictions are made (only if no cards revealed yet)
                 if (firstFlopCards === 3 && secondFlopCards === 3) {
                     // Only 3 cards exposed, just show predictions
                     setCurrentWinners({
@@ -848,12 +835,18 @@
                     })
                     .then(res => res.json())
                     .then(data => {
-                        setCurrentWinners({
-                            first: firstFlopCards >= 3 ? data.winner_first : null,
-                            second: secondFlopCards >= 3 ? data.winner_second : null
-                        });
+                        // Update winners based on current exposed cards
+                        const newWinners = {
+                            first: firstFlopCards >= 4 ? data.winner_first : predictionFirst,
+                            second: secondFlopCards >= 4 ? data.winner_second : predictionSecond
+                        };
+                        
+                        // Always update to show actual winners when cards are revealed
+                        setCurrentWinners(newWinners);
+                        console.log("Winners updated after API call:", newWinners);
                     })
-                    .catch(() => {
+                    .catch((err) => {
+                        console.error("Error updating winners:", err);
                         // On error, keep predictions as winners
                         setCurrentWinners({
                             first: predictionFirst,
@@ -863,12 +856,18 @@
                 }
             }
 
-            // Update winners when predictions are made or cards are revealed
+            // Update winners when cards are revealed
             useEffect(() => {
                 if (gameStarted && !showResults) {
-                    updateCurrentWinners();
+                    // Only update if we have exposed cards beyond the initial 3
+                    const firstFlopCards = firstFlop.exposed?.length || 0;
+                    const secondFlopCards = secondFlop.exposed?.length || 0;
+                    
+                    if (firstFlopCards > 3 || secondFlopCards > 3) {
+                        updateCurrentWinners();
+                    }
                 }
-            }, [firstFlop.exposed, secondFlop.exposed, gameStarted, showResults, predictionFirst, predictionSecond]);
+            }, [firstFlop.exposed?.length, secondFlop.exposed?.length, gameStarted, showResults]);
 
             // --- Add the startGame function inside PokerGame ---
             function startGame(skipLeaderboard = false) {
@@ -1002,8 +1001,9 @@
                         if (data.flops.first_flop) setFirstFlop(data.flops.first_flop);
                         if (data.flops.second_flop) setSecondFlop(data.flops.second_flop);
                         setError(null);
-                        // Update current winners after revealing a card
-                        setTimeout(() => updateCurrentWinners(), 100);
+                        
+                        // Don't call updateCurrentWinners here - let the useEffect handle it
+                        // This prevents race conditions
                     }
                 })
                 .catch(() => setError("Failed to reveal card."));
@@ -1028,41 +1028,61 @@
 
             // --- Add the revealWinner function inside PokerGame ---
             function revealWinner() {
+                // Don't proceed if already loading or if we don't have predictions
+                if (loading || !predictionFirst || !predictionSecond) {
+                    console.error("Cannot reveal winner: loading =", loading, "predictions =", predictionFirst, predictionSecond);
+                    return;
+                }
+                
                 setLoading(true);
                 
-                // Reveal all remaining cards before showing results
-                const allFlops = {
-                    first_flop: { ...firstFlop },
-                    second_flop: { ...secondFlop }
-                };
+                // Prepare the flop data without modifying state yet
+                const firstFlopData = [...firstFlop.exposed];
+                const secondFlopData = [...secondFlop.exposed];
                 
-                // Move all flipped cards to exposed for both flops
-                if (allFlops.first_flop.flipped && allFlops.first_flop.flipped.length > 0) {
-                    allFlops.first_flop.exposed = [...allFlops.first_flop.exposed, ...allFlops.first_flop.flipped];
-                    allFlops.first_flop.flipped = [];
+                // Add any remaining flipped cards to the data
+                if (firstFlop.flipped && firstFlop.flipped.length > 0) {
+                    firstFlopData.push(...firstFlop.flipped);
                 }
-                if (allFlops.second_flop.flipped && allFlops.second_flop.flipped.length > 0) {
-                    allFlops.second_flop.exposed = [...allFlops.second_flop.exposed, ...allFlops.second_flop.flipped];
-                    allFlops.second_flop.flipped = [];
+                if (secondFlop.flipped && secondFlop.flipped.length > 0) {
+                    secondFlopData.push(...secondFlop.flipped);
                 }
                 
-                // Update the state to show all cards revealed
-                setFirstFlop(allFlops.first_flop);
-                setSecondFlop(allFlops.second_flop);
+                // Debug logging
+                console.log("Revealing winner with data:", {
+                    players: players,
+                    first_flop: firstFlopData,
+                    second_flop: secondFlopData,
+                    prediction_first: predictionFirst,
+                    prediction_second: predictionSecond
+                });
                 
                 fetch('/reveal_winner', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        players,
-                        first_flop: allFlops.first_flop.exposed,
-                        second_flop: allFlops.second_flop.exposed,
+                        players: players,
+                        first_flop: firstFlopData,
+                        second_flop: secondFlopData,
                         prediction_first: predictionFirst,
                         prediction_second: predictionSecond
                     })
                 })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`HTTP error! status: ${res.status}`);
+                    }
+                    return res.json();
+                })
                 .then(data => {
+                    // Now update the state to show all cards revealed
+                    const allFlops = {
+                        first_flop: { exposed: firstFlopData, flipped: [] },
+                        second_flop: { exposed: secondFlopData, flipped: [] }
+                    };
+                    
+                    setFirstFlop(allFlops.first_flop);
+                    setSecondFlop(allFlops.second_flop);
                     setWinner(data);
                     setShowResults(true);
                     setLoading(false);
@@ -1095,8 +1115,9 @@
                 })
                 .catch(err => {
                     console.error("Error revealing winner:", err);
+                    console.error("Error details:", err.message);
                     setLoading(false);
-                    setError("Failed to reveal winner. Please try again.");
+                    setError(`Failed to reveal winner: ${err.message || 'Unknown error'}`);
                 });
             }
 
@@ -1152,8 +1173,16 @@
             useEffect(() => {
                 if (predictionFirst && predictionSecond) {
                     setPredictionsLocked(true);
-                    // Immediately show predicted winners
-                    updateCurrentWinners();
+                    // Only show predicted winners if no cards have been revealed yet
+                    const firstFlopCards = firstFlop.exposed?.length || 0;
+                    const secondFlopCards = secondFlop.exposed?.length || 0;
+                    
+                    if (firstFlopCards === 3 && secondFlopCards === 3) {
+                        setCurrentWinners({
+                            first: predictionFirst,
+                            second: predictionSecond
+                        });
+                    }
                 } else {
                     setPredictionsLocked(false);
                 }
@@ -1183,10 +1212,10 @@
 
             // Trigger revealWinner when allCardsRevealed becomes true
             useEffect(() => {
-                if (allCardsRevealed && !showResults && !winner && predictionFirst && predictionSecond) {
+                if (allCardsRevealed && !showResults && !winner && predictionFirst && predictionSecond && !loading) {
                     revealWinner();
                 }
-            }, [allCardsRevealed, showResults, winner, predictionFirst, predictionSecond]);
+            }, [allCardsRevealed, showResults, winner, predictionFirst, predictionSecond, loading]);
 
             // --- Add prediction accuracy calculation ---
             const accuracy = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
@@ -1215,7 +1244,11 @@
                             React.createElement('img', {
                                 src: "/static/logo.png",
                                 alt: "Bombpot Poker Logo",
-                                style: { width: 80, height: 80 },
+                                style: { 
+                                    width: 80, 
+                                    height: 80,
+                                    backgroundColor: 'transparent' // Ensure transparent background
+                                },
                                 className: "logo-glow relative z-10",
                                 onError: (e) => {
                                     // If logo fails to load, show a stylized chip icon
@@ -1226,8 +1259,7 @@
                                         </div>
                                     `;
                                 }
-                            }),
-                            React.createElement('div', { className: "logo-shine" })
+                            })
                         ),
                         React.createElement('a', {
                             href: "/",
@@ -1427,7 +1459,12 @@
                         React.createElement('h2', { className: "text-2xl font-bold mb-4 text-yellow-600" }, "Results"),
                         React.createElement('div', { className: "mb-4" },
                             React.createElement('div', { className: "font-semibold mb-1" }, "First Flop Winner:"),
-                            React.createElement('div', null, winner.winner_first, " (", describeHandType(winner.hand_type_first), ")"),
+                            React.createElement('div', null, 
+                                Array.isArray(winner.winner_first) 
+                                    ? winner.winner_first.join(" & ") + " (Tie)"
+                                    : winner.winner_first,
+                                " (", describeHandType(winner.hand_type_first), ")"
+                            ),
                             winner.prediction_correct_first !== undefined &&
                                 React.createElement('div', {
                                     className: winner.prediction_correct_first ? "text-green-600 font-bold" : "text-red-600 font-bold"
@@ -1436,7 +1473,12 @@
                         winner.winner_second &&
                         React.createElement('div', { className: "mb-4" },
                             React.createElement('div', { className: "font-semibold mb-1" }, "Second Flop Winner:"),
-                            React.createElement('div', null, winner.winner_second, " (", describeHandType(winner.hand_type_second), ")"),
+                            React.createElement('div', null, 
+                                Array.isArray(winner.winner_second) 
+                                    ? winner.winner_second.join(" & ") + " (Tie)"
+                                    : winner.winner_second,
+                                " (", describeHandType(winner.hand_type_second), ")"
+                            ),
                             winner.prediction_correct_second !== undefined &&
                                 React.createElement('div', {
                                     className: winner.prediction_correct_second ? "text-green-600 font-bold" : "text-red-600 font-bold"

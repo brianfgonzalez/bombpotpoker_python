@@ -220,9 +220,9 @@ def determine_winner_multiple(players, flop):
     print("Debug: Flop data:", flop)
 
     best_score = -1
-    best_player = None
-    best_hand = None
+    winners = []  # Changed to list to support multiple winners
     best_hand_type = None
+    player_evaluations = []  # Store all evaluations for tie detection
 
     for index, player in enumerate(players):
         player_hand = player.get('cards', [])
@@ -242,19 +242,39 @@ def determine_winner_multiple(players, flop):
 
         # Find the best combination for the current player
         best_combination = max(combinations_list, key=lambda hand: evaluate_hand(hand)[0])
-        score, hand_type, _ = evaluate_hand(best_combination)
+        score, hand_type, sorted_cards = evaluate_hand(best_combination)
+        
+        player_evaluations.append({
+            'player': f"Player {index + 1}",
+            'score': score,
+            'hand_type': hand_type,
+            'hand': best_combination,
+            'evaluation': (score, hand_type, sorted_cards)
+        })
 
-        # Update the best player if the current player's score is higher
-        if score > best_score:
-            best_score = score
-            best_player = f"Player {index + 1}"
-            best_hand = best_combination
-            best_hand_type = hand_type
-
-    if best_player is None:
+    if not player_evaluations:
         raise ValueError("No valid hands to evaluate.")
 
-    return best_player, best_hand_type, best_hand
+    # Sort players by their evaluation (best first)
+    player_evaluations.sort(key=lambda x: x['evaluation'], reverse=True)
+    
+    # Find all players with the best hand
+    best_eval = player_evaluations[0]['evaluation']
+    winners = []
+    
+    for player_eval in player_evaluations:
+        # Compare hands using the compare_hands function
+        if compare_hands(player_eval['evaluation'], best_eval) == 0:
+            winners.append(player_eval['player'])
+        else:
+            break  # Since sorted, no need to check further
+    
+    # Return winners list and hand info
+    if len(winners) == 1:
+        return winners[0], player_evaluations[0]['hand_type'], player_evaluations[0]['hand']
+    else:
+        # Multiple winners (tie)
+        return winners, player_evaluations[0]['hand_type'], player_evaluations[0]['hand']
 
 LEADERBOARD_FILE = os.path.join(os.path.dirname(__file__), "leaderboard.json")
 
@@ -332,7 +352,7 @@ def index():
 @app.route('/start_game', methods=['POST'])
 def start_game():
     data = request.json
-    num_players = data.get('num_players', 2)  # Default to 2 players
+    num_players = data.get('num_players', 4)  # Changed default from 2 to 4
     num_flops = data.get('num_flops', 2)  # Default to 2 flops
 
     # Shuffle the deck
@@ -471,45 +491,104 @@ def reveal_river():
 
 @app.route('/reveal_winner', methods=['POST'])
 def reveal_winner():
-    data = request.get_json()
-    print("Data received in /reveal_winner:", data)  # Debugging: Log the received data
+    try:
+        data = request.get_json()
+        print("Data received in /reveal_winner:", data)  # Debugging: Log the received data
 
-    players = data['players']
-    first_flop = data['first_flop']
-    second_flop = data.get('second_flop', [])
-    prediction_first = data.get('prediction_first', None)
-    prediction_second = data.get('prediction_second', None)
+        # Validate required fields
+        if not data:
+            return jsonify({'error': 'No data received'}), 400
+            
+        players = data.get('players')
+        first_flop = data.get('first_flop')
+        second_flop = data.get('second_flop')
+        prediction_first = data.get('prediction_first')
+        prediction_second = data.get('prediction_second')
+        
+        # Validate all required fields are present
+        if not players or not isinstance(players, list):
+            return jsonify({'error': 'Invalid or missing players data'}), 400
+        if first_flop is None or not isinstance(first_flop, list):
+            return jsonify({'error': 'Invalid or missing first_flop data'}), 400
+        if second_flop is None or not isinstance(second_flop, list):
+            return jsonify({'error': 'Invalid or missing second_flop data'}), 400
+            
+        # Allow 3, 4, or 5 cards for partial winner checking
+        if len(first_flop) < 3 or len(first_flop) > 5:
+            return jsonify({'error': f'First flop must have 3-5 cards, got {len(first_flop)}'}), 400
+        if len(second_flop) < 3 or len(second_flop) > 5:
+            return jsonify({'error': f'Second flop must have 3-5 cards, got {len(second_flop)}'}), 400
 
-    # Debugging: Log the received predictions
-    print("Prediction for First Flop:", prediction_first)
-    print("Prediction for Second Flop:", prediction_second)
+        # Debugging: Log the received predictions
+        print("Prediction for First Flop:", prediction_first)
+        print("Prediction for Second Flop:", prediction_second)
 
-    # Process the data and determine the winners
-    # (Assume determine_winner_multiple is a function that determines the winner)
-    winner_first, hand_type_first, best_hand_first = determine_winner_multiple(players, first_flop)
-    winner_second, hand_type_second, best_hand_second = None, None, None
-    if second_flop:
-        winner_second, hand_type_second, best_hand_second = determine_winner_multiple(players, second_flop)
+        # Process the data and determine the winners
+        # Handle cases where we might have less than 5 cards (for intermediate updates)
+        winner_first = None
+        hand_type_first = None
+        best_hand_first = None
+        
+        winner_second = None
+        hand_type_second = None
+        best_hand_second = None
+        
+        # Only calculate winners if we have at least 3 cards
+        if len(first_flop) >= 3:
+            # Pad with dummy cards if less than 5 for evaluation
+            eval_first_flop = first_flop[:]
+            while len(eval_first_flop) < 5:
+                # Add dummy cards that won't affect hand evaluation
+                eval_first_flop.append({'rank': '2', 'suit': '♣'})
+            
+            winner_first, hand_type_first, best_hand_first = determine_winner_multiple(players, eval_first_flop)
+        
+        if len(second_flop) >= 3:
+            # Pad with dummy cards if less than 5 for evaluation
+            eval_second_flop = second_flop[:]
+            while len(eval_second_flop) < 5:
+                # Add dummy cards that won't affect hand evaluation
+                eval_second_flop.append({'rank': '2', 'suit': '♦'})
+            
+            winner_second, hand_type_second, best_hand_second = determine_winner_multiple(players, eval_second_flop)
 
-    # Check if the predictions were correct
-    prediction_correct_first = prediction_first == winner_first
-    prediction_correct_second = prediction_second == winner_second if second_flop else None
+        # Check if the predictions were correct
+        # For ties, check if prediction is in the winners list
+        prediction_correct_first = False
+        prediction_correct_second = False
+        
+        if winner_first:
+            if isinstance(winner_first, list):
+                prediction_correct_first = prediction_first in winner_first
+            else:
+                prediction_correct_first = prediction_first == winner_first
+        
+        if winner_second:
+            if isinstance(winner_second, list):
+                prediction_correct_second = prediction_second in winner_second
+            else:
+                prediction_correct_second = prediction_second == winner_second
 
-    # Debugging: Log the results
-    print("Winner First Flop:", winner_first, hand_type_first, best_hand_first)
-    if second_flop:
-        print("Winner Second Flop:", winner_second, hand_type_second, best_hand_second)
+        # Debugging: Log the results
+        print("Winner First Flop:", winner_first, hand_type_first)
+        print("Winner Second Flop:", winner_second, hand_type_second)
 
-    return jsonify({
-        "winner_first": winner_first,
-        "hand_type_first": hand_type_first,
-        "best_hand_first": best_hand_first,
-        "prediction_correct_first": prediction_correct_first,
-        "winner_second": winner_second,
-        "hand_type_second": hand_type_second,
-        "best_hand_second": best_hand_second,
-        "prediction_correct_second": prediction_correct_second
-    })
+        return jsonify({
+            "winner_first": winner_first,
+            "hand_type_first": hand_type_first,
+            "best_hand_first": best_hand_first,
+            "prediction_correct_first": prediction_correct_first,
+            "winner_second": winner_second,
+            "hand_type_second": hand_type_second,
+            "best_hand_second": best_hand_second,
+            "prediction_correct_second": prediction_correct_second
+        })
+        
+    except Exception as e:
+        print(f"Error in /reveal_winner: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
