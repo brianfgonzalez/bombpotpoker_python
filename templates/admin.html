@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bombpot Poker - Admin</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Luckiest+Guy&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
+            background: #1a2a3a;
+            min-height: 100vh;
+            color: #f3f4f6;
+        }
+        .game-title {
+            font-family: 'Luckiest Guy', cursive, sans-serif;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 12px #000, 0 0 12px #ffe082;
+            color: #ffe082;
+        }
+        .admin-button {
+            background: #dc2626;
+            color: white;
+            border: 2px solid #b91c1c;
+            transition: all 0.2s;
+        }
+        .admin-button:hover {
+            background: #b91c1c;
+            transform: scale(1.05);
+        }
+        .admin-button:disabled {
+            background: #6b7280;
+            border-color: #4b5563;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen bg-gradient-to-br from-[#232946] via-[#1a2a3a] to-[#0a101a] p-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="game-title text-4xl mb-2">Bombpot Poker Admin</h1>
+                <a href="/" class="text-yellow-300 hover:text-yellow-400 underline">← Back to Game</a>
+            </div>
+
+            <!-- Stats -->
+            <div class="bg-[#232946] bg-opacity-80 rounded-xl p-6 mb-8">
+                <h2 class="text-xl font-bold text-yellow-300 mb-4">Leaderboard Statistics</h2>
+                <div id="stats" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-white" id="total-entries">-</div>
+                        <div class="text-sm text-gray-400">Total Entries</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-400" id="easy-entries">-</div>
+                        <div class="text-sm text-gray-400">Easy Mode</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-400" id="difficult-entries">-</div>
+                        <div class="text-sm text-gray-400">Difficult Mode</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-300" id="easy-qualified">-</div>
+                        <div class="text-sm text-gray-400">Easy Qualified (20+)</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-300" id="difficult-qualified">-</div>
+                        <div class="text-sm text-gray-400">Difficult Qualified (20+)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clear Actions -->
+            <div class="bg-[#232946] bg-opacity-80 rounded-xl p-6">
+                <h2 class="text-xl font-bold text-yellow-300 mb-4">Clear Leaderboard</h2>
+                
+                <div class="mb-6">
+                    <label class="block text-white mb-2">Admin Password:</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="w-full px-4 py-2 rounded bg-[#181e2a] text-white border border-gray-600 focus:border-yellow-400"
+                        placeholder="Enter admin password"
+                    >
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button 
+                        onclick="clearLeaderboard('easy')" 
+                        class="admin-button px-6 py-3 rounded-lg font-semibold"
+                    >
+                        Clear Easy Mode
+                    </button>
+                    <button 
+                        onclick="clearLeaderboard('difficult')" 
+                        class="admin-button px-6 py-3 rounded-lg font-semibold"
+                    >
+                        Clear Difficult Mode
+                    </button>
+                    <button 
+                        onclick="clearLeaderboard('all')" 
+                        class="admin-button px-6 py-3 rounded-lg font-semibold"
+                    >
+                        Clear All
+                    </button>
+                </div>
+
+                <div id="message" class="mt-4 text-center"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load stats on page load
+        loadStats();
+
+        function loadStats() {
+            fetch('/admin/get_stats')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('total-entries').textContent = data.total_entries;
+                    document.getElementById('easy-entries').textContent = data.easy_entries;
+                    document.getElementById('difficult-entries').textContent = data.difficult_entries;
+                    document.getElementById('easy-qualified').textContent = data.easy_qualified;
+                    document.getElementById('difficult-qualified').textContent = data.difficult_qualified;
+                })
+                .catch(err => {
+                    console.error('Failed to load stats:', err);
+                });
+        }
+
+        function clearLeaderboard(mode) {
+            const password = document.getElementById('password').value;
+            const messageEl = document.getElementById('message');
+            
+            if (!password) {
+                showMessage('Please enter the admin password', 'error');
+                return;
+            }
+
+            const confirmMsg = mode === 'all' 
+                ? 'Are you sure you want to clear ALL leaderboard entries?' 
+                : `Are you sure you want to clear all ${mode} mode entries?`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            const difficulty = mode === 'all' ? null : mode;
+
+            fetch('/admin/clear_leaderboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    difficulty: difficulty,
+                    password: password 
+                })
+            })
+            .then(res => {
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        throw new Error('Invalid password');
+                    }
+                    throw new Error('Failed to clear leaderboard');
+                }
+                return res.json();
+            })
+            .then(data => {
+                showMessage(`Successfully cleared ${mode === 'all' ? 'all' : mode + ' mode'} leaderboard`, 'success');
+                loadStats(); // Reload stats
+                document.getElementById('password').value = ''; // Clear password
+            })
+            .catch(err => {
+                showMessage(err.message, 'error');
+            });
+        }
+
+        function showMessage(msg, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = msg;
+            messageEl.className = 'mt-4 text-center font-semibold ' + 
+                (type === 'error' ? 'text-red-400' : 'text-green-400');
+            
+            // Clear message after 5 seconds
+            setTimeout(() => {
+                messageEl.textContent = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

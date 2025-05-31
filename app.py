@@ -325,9 +325,15 @@ def save_leaderboard(leaderboard):
 
 @app.route('/leaderboard', methods=['GET'])
 def get_leaderboard():
+    # Get difficulty parameter from query string
+    difficulty = request.args.get('difficulty', 'easy')
+    
     leaderboard = load_leaderboard()
-    # Only show entries with at least 20 flops
-    leaderboard = [entry for entry in leaderboard if entry.get("total", 0) >= 20]
+    # Filter by difficulty and minimum 20 flops
+    leaderboard = [
+        entry for entry in leaderboard 
+        if entry.get("total", 0) >= 20 and entry.get("difficulty", "easy") == difficulty
+    ]
     # Sort by accuracy (correct/total), then by total (descending)
     leaderboard = sorted(
         leaderboard,
@@ -376,6 +382,7 @@ def start_game():
     data = request.json
     num_players = data.get('num_players', 4)  # Changed default from 2 to 4
     num_flops = data.get('num_flops', 2)  # Default to 2 flops
+    difficulty = data.get('difficulty', 'easy')  # Get difficulty level
 
     # Shuffle the deck
     deck = DECK[:]
@@ -385,6 +392,7 @@ def start_game():
     players = [{'cards': [deck.pop() for _ in range(4)]} for _ in range(num_players)]
 
     # Create the flops with 3 exposed cards and 2 flipped cards
+    # For easy mode, we'll still structure it the same way but the frontend will handle display
     first_flop = {
         'exposed': [deck.pop() for _ in range(3)],
         'flipped': [deck.pop() for _ in range(2)]
@@ -398,7 +406,8 @@ def start_game():
         'players': players,
         'first_flop': first_flop,
         'second_flop': second_flop,
-        'deck': deck
+        'deck': deck,
+        'difficulty': difficulty
     })
 
 @app.route('/reveal_card', methods=['POST'])
@@ -611,6 +620,56 @@ def reveal_winner():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+# Add admin routes
+@app.route('/admin')
+def admin():
+    return render_template('admin.html')
+
+@app.route('/admin/clear_leaderboard', methods=['POST'])
+def clear_leaderboard():
+    data = request.get_json()
+    difficulty = data.get('difficulty', None)
+    password = data.get('password', '')
+    
+    # Simple password protection (change this to a secure password)
+    ADMIN_PASSWORD = "P@ssw0rd"  # Change this to your desired password
+    
+    if password != ADMIN_PASSWORD:
+        return jsonify({"error": "Invalid password"}), 401
+    
+    leaderboard = load_leaderboard()
+    
+    if difficulty:
+        # Clear only specific difficulty
+        leaderboard = [
+            entry for entry in leaderboard 
+            if entry.get("difficulty", "easy") != difficulty
+        ]
+    else:
+        # Clear all
+        leaderboard = []
+    
+    save_leaderboard(leaderboard)
+    return jsonify({"success": True})
+
+@app.route('/admin/get_stats', methods=['GET'])
+def get_admin_stats():
+    leaderboard = load_leaderboard()
+    
+    # Calculate stats
+    easy_entries = [e for e in leaderboard if e.get("difficulty", "easy") == "easy"]
+    difficult_entries = [e for e in leaderboard if e.get("difficulty", "easy") == "difficult"]
+    
+    stats = {
+        "total_entries": len(leaderboard),
+        "easy_entries": len(easy_entries),
+        "difficult_entries": len(difficult_entries),
+        "easy_qualified": len([e for e in easy_entries if e.get("total", 0) >= 20]),
+        "difficult_qualified": len([e for e in difficult_entries if e.get("total", 0) >= 20])
+    }
+    
+    return jsonify(stats)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -573,7 +573,7 @@
             );
         }
 
-        function Flop({ flop, flopKey, onFlip, prediction, setPrediction, numPlayers, lastFlippedIndex, flops, highlightFourth, selectGlow, predictionOptions, canRevealFourth, predictionsLocked, predictionFirst, predictionSecond }) {
+        function Flop({ flop, flopKey, onFlip, prediction, setPrediction, numPlayers, lastFlippedIndex, flops, highlightFourth, selectGlow, predictionOptions, canRevealFourth, predictionsLocked, predictionFirst, predictionSecond, difficulty }) {
             // Show exposed and flipped cards in correct order, with flip animation for the last revealed
             const totalCards = (flop.exposed || []).length + (flop.flipped || []).length;
             const cards = [];
@@ -637,10 +637,12 @@
             }
             // Prediction dropdown options
             const options = predictionOptions || [];
+            const labelText = difficulty === "easy" ? "Winner:" : "Prediction:";
+            
             return React.createElement('div', { className: "flex flex-col items-center bg-[#232946] bg-opacity-80 rounded-xl p-4 shadow-lg min-w-[220px]" },
                 React.createElement('span', { className: "text-yellow-300 font-bold mb-2 text-lg tracking-wide" }, flopKey === "first_flop" ? "First Flop" : "Second Flop"),
                 React.createElement('div', { className: "mb-3" },
-                    React.createElement('label', { className: "text-white mr-2 font-medium" }, "Prediction:"),
+                    React.createElement('label', { className: "text-white mr-2 font-medium" }, labelText),
                     React.createElement('select', {
                         className: `rounded px-2 py-1 custom-select ${selectGlow ? "glow-select" : ""}`,
                         value: prediction,
@@ -820,9 +822,14 @@
                 const firstFlopCards = firstFlop.exposed?.length || 0;
                 const secondFlopCards = secondFlop.exposed?.length || 0;
 
-                // Show predicted winners immediately when predictions are made (only if no cards revealed yet)
-                if (firstFlopCards === 3 && secondFlopCards === 3) {
-                    // Only 3 cards exposed, just show predictions
+                // In difficult mode, don't show winners until cards are actually revealed
+                if (difficulty === "difficult" && firstFlopCards <= 3 && secondFlopCards <= 3) {
+                    setCurrentWinners({ first: null, second: null });
+                    return;
+                }
+
+                // In easy mode with all cards shown, show predicted winners immediately
+                if (difficulty === "easy" && firstFlopCards >= 5 && secondFlopCards >= 5) {
                     setCurrentWinners({
                         first: predictionFirst,
                         second: predictionSecond
@@ -925,7 +932,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         num_players: numPlayers,
-                        num_flops: 2
+                        num_flops: 2,
+                        difficulty: difficulty  // Pass difficulty to backend
                     })
                 })
                 .then(res => {
@@ -942,8 +950,23 @@
                         return;
                     }
                     setPlayers(data.players || []);
-                    setFirstFlop(data.first_flop || { exposed: [], flipped: [] });
-                    setSecondFlop(data.second_flop || { exposed: [], flipped: [] });
+                    
+                    // For easy mode, all cards are exposed immediately
+                    if (difficulty === "easy") {
+                        setFirstFlop({ 
+                            exposed: [...data.first_flop.exposed, ...data.first_flop.flipped], 
+                            flipped: [] 
+                        });
+                        setSecondFlop({ 
+                            exposed: [...data.second_flop.exposed, ...data.second_flop.flipped], 
+                            flipped: [] 
+                        });
+                    } else {
+                        // Difficult mode - traditional setup
+                        setFirstFlop(data.first_flop || { exposed: [], flipped: [] });
+                        setSecondFlop(data.second_flop || { exposed: [], flipped: [] });
+                    }
+                    
                     setGameStarted(true);
                     setSkipOptions(skipLeaderboard);
                     setLoading(false);
@@ -953,7 +976,7 @@
                     setPredictionSecond("");
                     setLastFlippedFirst(null);
                     setLastFlippedSecond(null);
-                    setAllCardsRevealed(false);
+                    setAllCardsRevealed(difficulty === "easy"); // Easy mode starts with all cards revealed
                     setHighlightPrediction(true);
                     setHighlightFourth(false);
                     setPredictionsLocked(false);
@@ -1193,11 +1216,9 @@
             useEffect(() => {
                 if (predictionFirst && predictionSecond) {
                     setPredictionsLocked(true);
-                    // Only show predicted winners if no cards have been revealed yet
-                    const firstFlopCards = firstFlop.exposed?.length || 0;
-                    const secondFlopCards = secondFlop.exposed?.length || 0;
-                    
-                    if (firstFlopCards === 3 && secondFlopCards === 3) {
+                    // Only show predicted winners if in easy mode (all cards visible)
+                    // In difficult mode, don't show any winners until cards are revealed
+                    if (difficulty === "easy") {
                         setCurrentWinners({
                             first: predictionFirst,
                             second: predictionSecond
@@ -1206,7 +1227,7 @@
                 } else {
                     setPredictionsLocked(false);
                 }
-            }, [predictionFirst, predictionSecond]);
+            }, [predictionFirst, predictionSecond, difficulty]);
 
             // Add effect to fetch leaderboard on component mount
             useEffect(() => {
@@ -1217,6 +1238,16 @@
                     })
                     .catch(err => console.error("Failed to fetch leaderboard:", err));
             }, []);
+
+            // Add effect to fetch leaderboard when difficulty changes
+            useEffect(() => {
+                fetch(`/leaderboard?difficulty=${difficulty}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        setLeaderboard(data.leaderboard || []);
+                    })
+                    .catch(err => console.error("Failed to fetch leaderboard:", err));
+            }, [difficulty]);
 
             // Update allCardsRevealed state when both flops have no flipped cards left
             useEffect(() => {
@@ -1356,7 +1387,9 @@
                 ),
                 // Leaderboard (show if not started and not skipping options)
                 (!gameStarted && !skipOptions) && React.createElement('div', { className: "mb-8 flex flex-col items-center" },
-                    React.createElement('h3', { className: "text-xl font-bold text-yellow-700 mb-2 text-center" }, "Leaderboard (20+ flops)"),
+                    React.createElement('h3', { className: "text-xl font-bold text-yellow-700 mb-2 text-center" }, 
+                        `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Mode Leaderboard (20+ flops)`
+                    ),
                     leaderboard && (!Array.isArray(leaderboard) || leaderboard.filter(e => e && typeof e.correct === "number" && typeof e.total === "number" && e.total >= 20).length === 0)
                         ? React.createElement('div', { className: "text-gray-600 text-center" }, "No leaderboard entries yet.")
                         : React.createElement('table', { className: "min-w-full text-sm bg-[#181e2a] bg-opacity-100 rounded-xl overflow-hidden border border-gray-700" },
@@ -1413,7 +1446,8 @@
                                         predictionsLocked,
                                         // --- Pass both predictions for reveal logic ---
                                         predictionFirst,
-                                        predictionSecond
+                                        predictionSecond,
+                                        difficulty  // Add difficulty prop
                                     })
                                     : gameStarted && React.createElement('div', { className: "text-white opacity-60 bg-[#232946] bg-opacity-80 rounded-xl p-6 shadow-lg min-w-[220px] text-center" }, "First flop will appear here"),
                                 (secondFlop && (secondFlop.exposed.length + (secondFlop.flipped?.length || 0) > 0))
@@ -1433,7 +1467,8 @@
                                         predictionsLocked,
                                         // --- Pass both predictions for reveal logic ---
                                         predictionFirst,
-                                        predictionSecond
+                                        predictionSecond,
+                                        difficulty  // Add difficulty prop
                                     })
                                     : gameStarted && React.createElement('div', { className: "text-white opacity-60 bg-[#232946] bg-opacity-80 rounded-xl p-6 shadow-lg min-w-[220px] text-center" }, "Second flop will appear here")
                             )
@@ -1463,7 +1498,7 @@
                         className: "poker-chip px-8 py-3 rounded-full text-lg mb-6",
                         onClick: () => revealWinner(),
                         style: { minWidth: 180 }
-                    }, "Skip to Results"),
+                    }, difficulty === "easy" ? "Check Answer" : "Skip to Results"),
                     // --- Show prediction accuracy ---
                     React.createElement('div', { className: "text-yellow-300 font-bold mb-2 text-lg" },
                         "Prediction Accuracy: ",
@@ -1495,7 +1530,9 @@
                             winner.prediction_correct_first !== undefined &&
                                 React.createElement('div', {
                                     className: winner.prediction_correct_first ? "text-green-600 font-bold" : "text-red-600 font-bold"
-                                }, winner.prediction_correct_first ? "Your prediction was correct!" : "Your prediction was incorrect.")
+                                }, winner.prediction_correct_first 
+                                    ? (difficulty === "easy" ? "Correct!" : "Your prediction was correct!") 
+                                    : (difficulty === "easy" ? "Incorrect!" : "Your prediction was incorrect."))
                         ),
                         winner.winner_second &&
                         React.createElement('div', { className: "mb-4" },
@@ -1509,7 +1546,9 @@
                             winner.prediction_correct_second !== undefined &&
                                 React.createElement('div', {
                                     className: winner.prediction_correct_second ? "text-green-600 font-bold" : "text-red-600 font-bold"
-                                }, winner.prediction_correct_second ? "Your prediction was correct!" : "Your prediction was incorrect.")
+                                }, winner.prediction_correct_second 
+                                    ? (difficulty === "easy" ? "Correct!" : "Your prediction was correct!") 
+                                    : (difficulty === "easy" ? "Incorrect!" : "Your prediction was incorrect."))
                         ),
                         React.createElement('div', { className: "flex gap-4 justify-center" },
                             React.createElement('button', {
@@ -1524,7 +1563,9 @@
                     ),
                     // --- Add Leaderboard after results ---
                     showResults && React.createElement('div', { className: "mt-8 mb-8 flex flex-col items-center max-w-5xl w-full" },
-                        React.createElement('h3', { className: "text-xl font-bold text-yellow-300 mb-2 text-center" }, "Leaderboard (20+ flops)"),
+                        React.createElement('h3', { className: "text-xl font-bold text-yellow-300 mb-2 text-center" }, 
+                            `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Mode Leaderboard (20+ flops)`
+                        ),
                         leaderboard && (!Array.isArray(leaderboard) || leaderboard.filter(e => e && typeof e.correct === "number" && typeof e.total === "number" && e.total >= 20).length === 0)
                             ? React.createElement('div', { className: "text-gray-400 text-center" }, "No leaderboard entries yet.")
                             : React.createElement('table', { className: "text-sm bg-[#181e2a] bg-opacity-100 rounded-xl overflow-hidden border border-gray-700" },
@@ -1565,11 +1606,21 @@
                 },
                     React.createElement('h2', { className: "text-lg font-bold text-yellow-300 mb-2" }, "Game Rules:"),
                     React.createElement('ol', { className: "list-decimal list-inside text-white text-sm space-y-1" },
-                        React.createElement('li', null, "Standard Texas Holdum Rules in play."),
+                        React.createElement('li', null, "Standard Texas Hold'em Rules in play."),
                         React.createElement('li', null, "Two cards of players hand MUST play."),
                         React.createElement('li', null, "The same two cards can be used for both hands."),
+                        React.createElement('li', null, difficulty === "easy" 
+                            ? "Easy Mode: All cards are shown. Select who won each flop." 
+                            : "Difficult Mode: Predict winners before revealing cards."),
                         React.createElement('li', null, "The game will reset automatically after 20 flops are reached and your accuracy will be submitted to the leaderboard.")
                     )
+                ),
+                // Add admin link
+                React.createElement('div', { className: "text-center mt-4 mb-8" },
+                    React.createElement('a', {
+                        href: "/admin",
+                        className: "text-gray-500 hover:text-gray-400 text-sm underline"
+                    }, "Admin")
                 )
             );
         }
