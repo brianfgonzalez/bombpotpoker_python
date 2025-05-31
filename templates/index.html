@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bombpot Poker</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React and ReactDOM CDN -->
@@ -119,16 +120,16 @@
         /* Responsive tweaks */
         @media (max-width: 768px) {
             .overlap-cards > * {
-                margin-right: -1.2rem;
+                margin-right: -1rem;
             }
             .poker-card {
-                min-height: 5.2rem !important;
-                width: 4rem !important;
-                height: 5.2rem !important;
+                min-height: 4.5rem !important;
+                width: 3.5rem !important;
+                height: 4.5rem !important;
             }
             .w-14, .h-24 {
-                width: 4rem !important;
-                height: 5.2rem !important;
+                width: 3.5rem !important;
+                height: 4.5rem !important;
             }
             .flex-col.md\:flex-row {
                 flex-direction: column !important;
@@ -156,10 +157,6 @@
             }
             .text-lg {
                 font-size: 1rem !important;
-            }
-            .w-14, .h-24 {
-                width: 2.5rem !important;
-                height: 3.5rem !important;
             }
             .p-6, .p-8 {
                 padding: 1rem !important;
@@ -204,13 +201,13 @@
                 font-size: 0.9rem !important;
             }
             .w-14, .h-24 {
-                width: 3.2rem !important;
-                height: 4.2rem !important;
+                width: 3rem !important;
+                height: 4rem !important;
             }
             .poker-card {
-                min-height: 4.2rem !important;
-                width: 3.2rem !important;
-                height: 4.2rem !important;
+                min-height: 4rem !important;
+                width: 3rem !important;
+                height: 4rem !important;
             }
             .rounded-xl {
                 border-radius: 0.5rem !important;
@@ -221,6 +218,9 @@
             .px-6, .px-8 {
                 padding-left: 0.5rem !important;
                 padding-right: 0.5rem !important;
+            }
+            .overlap-cards > * {
+                margin-right: -0.8rem;
             }
         }
         /* Responsive rules box */
@@ -373,6 +373,90 @@
                 font-size: 2rem !important;
             }
         }
+
+        /* Logo enhancements */
+        .logo-container {
+            position: relative;
+            display: inline-block;
+        }
+        .logo-glow {
+            filter: drop-shadow(0 0 20px rgba(255, 224, 130, 0.6)) 
+                    drop-shadow(0 0 40px rgba(255, 224, 130, 0.3));
+            transition: transform 0.3s ease, filter 0.3s ease;
+        }
+        .logo-glow:hover {
+            transform: scale(1.1) rotate(5deg);
+            filter: drop-shadow(0 0 30px rgba(255, 224, 130, 0.8)) 
+                    drop-shadow(0 0 60px rgba(255, 224, 130, 0.4));
+        }
+        .logo-shine {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                105deg,
+                transparent 40%,
+                rgba(255, 255, 255, 0.7) 50%,
+                transparent 60%
+            );
+            animation: shine 3s infinite;
+            pointer-events: none;
+        }
+        @keyframes shine {
+            0% { transform: translateX(-100%) translateY(-100%); }
+            100% { transform: translateX(100%) translateY(100%); }
+        }
+        .logo-bg {
+            position: absolute;
+            inset: -10px;
+            background: radial-gradient(circle at center, rgba(255, 224, 130, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulse-glow 2s ease-in-out infinite;
+            z-index: -1;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        /* Fallback poker chip logo */
+        .poker-chip-logo {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle at 30% 30%, #ffe082 0%, #facc15 50%, #b8860b 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 
+                0 4px 16px rgba(0,0,0,0.4),
+                inset 0 2px 4px rgba(255,255,255,0.3),
+                inset 0 -2px 4px rgba(0,0,0,0.3);
+            border: 3px solid #fff;
+            margin-right: 16px;
+            filter: drop-shadow(0 0 20px rgba(255, 224, 130, 0.6));
+            transition: transform 0.3s ease;
+        }
+        .poker-chip-logo:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+        .poker-chip-logo::before {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border: 2px dashed rgba(255,255,255,0.5);
+            border-radius: 50%;
+        }
+        .chip-inner {
+            font-family: 'Luckiest Guy', cursive, sans-serif;
+            font-size: 24px;
+            color: #232946;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
@@ -446,41 +530,41 @@
             const isWinningSecond = winningPlayers?.second === playerName;
             
             // Create separate container classes for each flop
-            let containerClass = "flex flex-col items-center mx-2 my-2 p-3 rounded-lg transition-all duration-300 relative";
+            let containerClass = "flex flex-col items-center mx-1 md:mx-2 my-2 p-2 md:p-3 rounded-lg transition-all duration-300 relative";
             
             // Add visual indicators for each flop separately
             const indicators = [];
             if (isWinningFirst) {
                 indicators.push(React.createElement('div', { 
                     key: 'first-indicator',
-                    className: "absolute -top-2 -left-2 bg-yellow-400 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-xs shadow-lg z-10"
+                    className: "absolute -top-2 -left-2 bg-yellow-400 text-black rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center font-bold text-xs shadow-lg z-10"
                 }, "1st"));
             }
             if (isWinningSecond) {
                 indicators.push(React.createElement('div', { 
                     key: 'second-indicator',
-                    className: "absolute -top-2 -right-2 bg-blue-400 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-xs shadow-lg z-10"
+                    className: "absolute -top-2 -right-2 bg-blue-400 text-black rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center font-bold text-xs shadow-lg z-10"
                 }, "2nd"));
             }
             
             // Apply different styling based on which flop(s) they're winning
             if (isWinningFirst && isWinningSecond) {
-                containerClass += " ring-4 ring-purple-400 bg-gradient-to-br from-yellow-400 to-blue-400 bg-opacity-20";
+                containerClass += " ring-2 md:ring-4 ring-purple-400 bg-gradient-to-br from-yellow-400 to-blue-400 bg-opacity-20";
             } else if (isWinningFirst) {
-                containerClass += " ring-4 ring-yellow-400 bg-yellow-400 bg-opacity-10";
+                containerClass += " ring-2 md:ring-4 ring-yellow-400 bg-yellow-400 bg-opacity-10";
             } else if (isWinningSecond) {
-                containerClass += " ring-4 ring-blue-400 bg-blue-400 bg-opacity-10";
+                containerClass += " ring-2 md:ring-4 ring-blue-400 bg-blue-400 bg-opacity-10";
             }
             
             return React.createElement('div', { className: containerClass },
                 ...indicators,
                 React.createElement('span', { 
-                    className: `mb-2 text-base font-semibold drop-shadow ${isWinningFirst || isWinningSecond ? 'text-white' : 'text-yellow-300'}` 
+                    className: `mb-1 md:mb-2 text-sm md:text-base font-semibold drop-shadow ${isWinningFirst || isWinningSecond ? 'text-white' : 'text-yellow-300'}` 
                 }, 
                     playerName,
-                    isWinningFirst && isWinningSecond && React.createElement('span', { className: "ml-2 text-xs" }, "🏆 Both"),
-                    isWinningFirst && !isWinningSecond && React.createElement('span', { className: "ml-2 text-xs text-yellow-400" }, "🏆"),
-                    !isWinningFirst && isWinningSecond && React.createElement('span', { className: "ml-2 text-xs text-blue-400" }, "🏆")
+                    isWinningFirst && isWinningSecond && React.createElement('span', { className: "ml-1 md:ml-2 text-xs" }, "🏆 Both"),
+                    isWinningFirst && !isWinningSecond && React.createElement('span', { className: "ml-1 md:ml-2 text-xs text-yellow-400" }, "🏆"),
+                    !isWinningFirst && isWinningSecond && React.createElement('span', { className: "ml-1 md:ml-2 text-xs text-blue-400" }, "🏆")
                 ),
                 React.createElement('div', { className: "overlap-cards" },
                     sortedCards.map((card, i) =>
@@ -652,6 +736,11 @@
                     return `${rankToWord(match[1])}-high Straight`;
                 }
                 return "Straight";
+            }
+            // Check if it's a flush with high card info
+            if (typeof handType === "string" && handType.includes("-high Flush")) {
+                // Already formatted correctly from backend
+                return handType;
             }
             if (typeof handType === "string") {
                 return handType;
@@ -978,60 +1067,36 @@
                     setShowResults(true);
                     setLoading(false);
                     setError(null);
+                    
+                    // Update prediction statistics
+                    const correctCount = (data.prediction_correct_first ? 1 : 0) + 
+                                       (data.prediction_correct_second ? 1 : 0);
+                    const newCorrect = correctPredictions + correctCount;
+                    const newTotal = totalPredictions + 2;
+                    
+                    setCorrectPredictions(newCorrect);
+                    setTotalPredictions(newTotal);
+                    localStorage.setItem('correctPredictions', newCorrect);
+                    localStorage.setItem('totalPredictions', newTotal);
 
-                    // Update accuracy stats
-                    let correct = correctPredictions;
-                    let total = totalPredictions;
-                    if (typeof data.prediction_correct_first === "boolean") {
-                        total += 1;
-                        if (data.prediction_correct_first) correct += 1;
-                    }
-                    if (typeof data.prediction_correct_second === "boolean") {
-                        total += 1;
-                        if (data.prediction_correct_second) correct += 1;
-                    }
-                    setCorrectPredictions(correct);
-                    setTotalPredictions(total);
-                    localStorage.setItem('correctPredictions', correct);
-                    localStorage.setItem('totalPredictions', total);
-
-                    // Check if we've reached 20 flops
-                    if (total >= 20 && playerName.trim()) {
-                        // Auto-submit to leaderboard
-                        fetch('/update_leaderboard', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: playerName.trim(),
-                                correct: correct,
-                                total: total,
-                                difficulty: difficulty
-                            })
-                        })
-                        .then(res => res.json())
-                        .then(submitData => {
-                            if (submitData.success) {
-                                // Show a message that stats were submitted
-                                alert(`Congratulations! You've completed 20 flops with ${Math.round((correct / total) * 100)}% accuracy. Your score has been submitted to the leaderboard!`);
-                                // Reset stats
-                                setCorrectPredictions(0);
-                                setTotalPredictions(0);
-                                localStorage.setItem('correctPredictions', 0);
-                                localStorage.setItem('totalPredictions', 0);
-                                // Refresh leaderboard
-                                fetch('/leaderboard')
-                                    .then(res => res.json())
-                                    .then(leaderboardData => {
-                                        setLeaderboard(leaderboardData.leaderboard || []);
-                                    });
-                            }
-                        })
-                        .catch(err => console.error("Failed to update leaderboard:", err));
-                    }
+                    // Auto-scroll to results after a short delay to ensure DOM is updated
+                    setTimeout(() => {
+                        const resultsElement = document.getElementById('game-results');
+                        if (resultsElement) {
+                            // Try multiple scroll methods for better compatibility
+                            resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            
+                            // Fallback: calculate position and scroll manually
+                            const yOffset = -100; // Adjust this value to fine-tune scroll position
+                            const y = resultsElement.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                            window.scrollTo({ top: y, behavior: 'smooth' });
+                        }
+                    }, 300); // Increased delay to ensure React has rendered
                 })
-                .catch(() => {
-                    setError("Failed to reveal winner.");
+                .catch(err => {
+                    console.error("Error revealing winner:", err);
                     setLoading(false);
+                    setError("Failed to reveal winner. Please try again.");
                 });
             }
 
@@ -1047,7 +1112,14 @@
                 setError(null);
                 setAllCardsRevealed(false);
                 setCurrentWinners({ first: null, second: null });
-                startGame(true); // Automatically start new game with same options
+                
+                // Scroll to top before starting new game
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Small delay to ensure scroll completes before game starts
+                setTimeout(() => {
+                    startGame(true); // Automatically start new game with same options
+                }, 300);
             }
 
             // --- Add goToGameOptions function here ---
@@ -1063,7 +1135,9 @@
                 setHighlightPrediction(true);
                 setError(null);
                 setAllCardsRevealed(false);
-                if (window.scrollToGameOptions) window.scrollToGameOptions();
+                
+                // Scroll to top when going to game options
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
 
             // --- Add effect to glow prediction dropdowns until selected ---
@@ -1135,18 +1209,25 @@
                                 e.preventDefault();
                                 goToGameOptions();
                             },
-                            className: "cursor-pointer"
+                            className: "cursor-pointer logo-container"
                         },
+                            React.createElement('div', { className: "logo-bg" }),
                             React.createElement('img', {
                                 src: "/static/logo.png",
                                 alt: "Bombpot Poker Logo",
-                                style: { width: 80, height: 80, marginRight: 16 },
-                                className: "drop-shadow-lg hover:scale-105 transition-transform",
+                                style: { width: 80, height: 80 },
+                                className: "logo-glow relative z-10",
                                 onError: (e) => {
-                                    // Hide the image if it fails to load
+                                    // If logo fails to load, show a stylized chip icon
                                     e.target.style.display = 'none';
+                                    e.target.parentElement.innerHTML = `
+                                        <div class="poker-chip-logo">
+                                            <div class="chip-inner">BP</div>
+                                        </div>
+                                    `;
                                 }
-                            })
+                            }),
+                            React.createElement('div', { className: "logo-shine" })
                         ),
                         React.createElement('a', {
                             href: "/",
@@ -1299,9 +1380,9 @@
                             )
                         ),
                         // --- Felt background for player hands ---
-                        React.createElement('div', { className: "felt-bg p-4 md:p-8 mb-10 w-full rounded-xl" },
+                        React.createElement('div', { className: "felt-bg p-2 md:p-4 lg:p-8 mb-10 w-full rounded-xl" },
                             gameStarted && React.createElement('div', {
-                                className: "flex flex-wrap justify-center gap-6 w-full"
+                                className: "flex flex-wrap justify-center gap-2 md:gap-4 lg:gap-6 w-full"
                             },
                                 players.length === 0
                                     ? React.createElement('div', { className: "text-white opacity-60" }, "No players yet. Start a game!")
@@ -1339,7 +1420,10 @@
                             ? error
                             : "Could not reveal winner. Please try again."
                     ),
-                    showResults && winner && React.createElement('div', { className: "bg-white bg-opacity-95 rounded-2xl p-8 shadow-2xl text-black mt-4 max-w-xl w-full border-4 border-yellow-400" },
+                    showResults && winner && React.createElement('div', { 
+                        className: "bg-white bg-opacity-95 rounded-2xl p-8 shadow-2xl text-black mt-4 max-w-xl w-full border-4 border-yellow-400",
+                        id: "game-results"  // Add ID for scrolling
+                    },
                         React.createElement('h2', { className: "text-2xl font-bold mb-4 text-yellow-600" }, "Results"),
                         React.createElement('div', { className: "mb-4" },
                             React.createElement('div', { className: "font-semibold mb-1" }, "First Flop Winner:"),

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import random
 from itertools import combinations
 import os
@@ -92,7 +92,19 @@ def evaluate_hand(cards):
 
     # Flush
     if is_flush:
-        return (5, "Flush", sorted(cards, key=card_sort_key, reverse=True))
+        sorted_flush_cards = sorted(cards, key=card_sort_key, reverse=True)
+        high_card = sorted_flush_cards[0]['rank']
+        # Convert rank to readable format for flush high card
+        high_card_readable = high_card
+        if high_card == 'A':
+            high_card_readable = 'Ace'
+        elif high_card == 'K':
+            high_card_readable = 'King'
+        elif high_card == 'Q':
+            high_card_readable = 'Queen'
+        elif high_card == 'J':
+            high_card_readable = 'Jack'
+        return (5, f"{high_card_readable}-high Flush", sorted_flush_cards)
 
     # Straight
     if is_straight:
@@ -305,6 +317,12 @@ def update_leaderboard():
     })
     save_leaderboard(leaderboard)
     return jsonify({"success": True})
+
+@app.route('/favicon.ico')
+def favicon():
+    # Return a 204 No Content response for favicon requests
+    # This prevents 404 errors in the browser console
+    return '', 204
 
 @app.route('/game-options')
 @app.route('/')
